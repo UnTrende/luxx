@@ -1,0 +1,65 @@
+            {isServiceManagementModalOpen && (
+                <div className="fixed inset-0 bg-black/60 flex items-start justify-center z-50 p-4 overflow-y-auto pt-20">
+                    <div className="bg-charcoal-card p-8 rounded-lg w-full max-w-md shadow-2xl relative">
+                        <button onClick={() => setIsServiceManagementModalOpen(false)} className="absolute top-4 right-4 text-subtle-text hover:text-white">
+                            <X size={24} />
+                        </button>
+                        <h2 className="text-2xl font-bold mb-6">{editingService ? 'Edit Service' : 'Add New Service'}</h2>
+                        <form onSubmit={handleServiceFormSubmit} className="space-y-4">
+                            <input 
+                                type="text" 
+                                placeholder="Service Name" 
+                                value={serviceForm.name} 
+                                onChange={e => setServiceForm({...serviceForm, name: e.target.value})} 
+                                required 
+                                className="w-full p-3 bg-dark-text rounded-md focus:outline-none focus:ring-2 focus:ring-lime-accent"
+                            />
+                            <input 
+                                type="text" 
+                                placeholder="Category" 
+                                value={serviceForm.category} 
+                                onChange={e => setServiceForm({...serviceForm, category: e.target.value})} 
+                                required 
+                                className="w-full p-3 bg-dark-text rounded-md focus:outline-none focus:ring-2 focus:ring-lime-accent"
+                            />
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-subtle-text mb-1">Duration (minutes)</label>
+                                    <input 
+                                        type="number" 
+                                        placeholder="Duration" 
+                                        value={serviceForm.duration} 
+                                        onChange={e => setServiceForm({...serviceForm, duration: Number(e.target.value)})} 
+                                        required 
+                                        min="1"
+                                        className="w-full p-3 bg-dark-text rounded-md focus:outline-none focus:ring-2 focus:ring-lime-accent"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-subtle-text mb-1">Price ($)</label>
+                                    <input 
+                                        type="number" 
+                                        placeholder="Price" 
+                                        value={serviceForm.price} 
+                                        onChange={e => setServiceForm({...serviceForm, price: Number(e.target.value)})} 
+                                        required 
+                                        min="0"
+                                        step="0.01"
+                                        className="w-full p-3 bg-dark-text rounded-md focus:outline-none focus:ring-2 focus:ring-lime-accent"
+                                    />
+                                </div>
+                            </div>
+                            <button 
+                                type="submit" 
+                                disabled={isServiceSubmitting} 
+                                className="w-full bg-lime-accent text-dark-text font-bold py-3 rounded-md hover:brightness-110 flex justify-center items-center gap-2 disabled:bg-gray-500"
+                            >
+                                {isServiceSubmitting ? (
+                                    <>
+                                        <Loader className="animate-spin" size={20} /> Saving...
+                                    </>
+                                ) : (
+                                    editingService ? 'Save Changes' : 'Add Service'
+                                )}
+                            </button>
+                      

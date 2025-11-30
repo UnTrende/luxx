@@ -1,0 +1,5 @@
+{
+  "name": "LuxeCut Barber Shop",
+  "description": "A comprehensive, modern barber shop application for customer booking, barber management, and product sales. Features include a sleek multi-page UI, dual-admin access, and attendance tracking.",
+  "requestFramePermissions": []
+}

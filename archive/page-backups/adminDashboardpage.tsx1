@@ -1,0 +1,1624 @@
+import React, { useState, useEffect } from 'react';
+import { supabase } from '../lib/supabase';
+import { 
+  BarChart, 
+  Bar, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  PieChart,
+  Pie,
+  Cell
+} from 'recharts';
+
+// Type definitions
+interface Service {
+  id: string;
+  name: string;
+  category: string;
+  duration: number; // in minutes
+  price: number;
+  description?: string;
+  image_url?: string;
+}
+
+interface Product {
+  id: string;
+  name: string;
+  category: string;
+  price: number;
+  stock_quantity: number;
+  description?: string;
+  image_url?: string;
+}
+
+interface Barber {
+  id: string;
+  user_id: string;
+  name: string;
+  email: string;
+  specialties: string[];
+  bio?: string;
+  image_url?: string;
+  working_hours: {
+    monday: { start: string; end: string };
+    tuesday: { start: string; end: string };
+    wednesday: { start: string; end: string };
+    thursday: { start: string; end: string };
+    friday: { start: string; end: string };
+    saturday: { start: string; end: string };
+    sunday: { start: string; end: string };
+  };
+}
+
+interface Booking {
+  id: string;
+  customer_id: string;
+  barber_id: string;
+  service_id: string;
+  appointment_time: string;
+  status: 'pending' | 'confirmed' | 'completed' | 'cancelled';
+  notes?: string;
+}
+
+interface User {
+  id: string;
+  email: string;
+  role: 'customer' | 'barber' | 'admin';
+  profile?: {
+    first_name: string;
+    last_name: string;
+    phone?: string;
+  };
+}
+
+interface AttendanceRecord {
+  id: string;
+  barber_id: string;
+  date: string;
+  clock_in: string;
+  clock_out?: string;
+  break_start?: string;
+  break_end?: string;
+}
+
+interface RosterEntry {
+  id: string;
+  barber_id: string;
+  day_of_week: string;
+  shift_start: string;
+  shift_end: string;
+  is_day_off: boolean;
+}
+
+interface SiteSettings {
+  id: string;
+  shop_name: string;
+  contact_email: string;
+  contact_phone: string;
+  address: string;
+  hero_image_url?: string;
+  about_text?: string;
+}
+
+interface AnalyticsData {
+  revenue: { month: string; amount: number }[];
+  bookings: { day: string; count: number }[];
+  servicePopularity: { name: string; count: number }[];
+  barberPerformance: { name: string; appointments: number; revenue: number }[];
+}
+
+const AdminDashboardPage: React.FC = () => {
+  // State for navigation
+  const [activeTab, setActiveTab] = useState('services');
+  
+  // State for data
+  const [services, setServices] = useState<Service[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [barbers, setBarbers] = useState<Barber[]>([]);
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
+  const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
+  const [rosterEntries, setRosterEntries] = useState<RosterEntry[]>([]);
+  const [siteSettings, setSiteSettings] = useState<SiteSettings | null>(null);
+  const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(null);
+  
+  // State for forms
+  const [serviceForm, setServiceForm] = useState<Partial<Service>>({
+    name: '',
+    category: '',
+    duration: 30,
+    price: 0,
+    description: ''
+  });
+  
+  const [productForm, setProductForm] = useState<Partial<Product>>({
+    name: '',
+    category: '',
+    price: 0,
+    stock_quantity: 0,
+    description: ''
+  });
+  
+  const [barberForm, setBarberForm] = useState<Partial<Barber>>({
+    name: '',
+    email: '',
+    specialties: [],
+    bio: '',
+    working_hours: {
+      monday: { start: '09:00', end: '17:00' },
+      tuesday: { start: '09:00', end: '17:00' },
+      wednesday: { start: '09:00', end: '17:00' },
+      thursday: { start: '09:00', end: '17:00' },
+      friday: { start: '09:00', end: '17:00' },
+      saturday: { start: '09:00', end: '17:00' },
+      sunday: { start: '09:00', end: '17:00' }
+    }
+  });
+  
+  const [settingsForm, setSettingsForm] = useState<Partial<SiteSettings>>({
+    shop_name: '',
+    contact_email: '',
+    contact_phone: '',
+    address: '',
+    about_text: ''
+  });
+  
+  // State for loading and errors
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  
+  // State for editing
+  const [editingService, setEditingService] = useState<string | null>(null);
+  const [editingProduct, setEditingProduct] = useState<string | null>(null);
+  const [editingBarber, setEditingBarber] = useState<string | null>(null);
+  
+  // Fetch data on component mount
+  useEffect(() => {
+    fetchServices();
+    fetchProducts();
+    fetchBarbers();
+    fetchBookings();
+    fetchUsers();
+    fetchAttendanceRecords();
+    fetchRosterEntries();
+    fetchSiteSettings();
+    fetchAnalyticsData();
+  }, []);
+  
+  // Data fetching functions
+  const fetchServices = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('services')
+        .select('*');
+      
+      if (error) throw error;
+      setServices(data || []);
+    } catch (err) {
+      setError('Failed to fetch services');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  const fetchProducts = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('products')
+        .select('*');
+      
+      if (error) throw error;
+      setProducts(data || []);
+    } catch (err) {
+      setError('Failed to fetch products');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  const fetchBarbers = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('barbers')
+        .select('*');
+      
+      if (error) throw error;
+      setBarbers(data || []);
+    } catch (err) {
+      setError('Failed to fetch barbers');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  const fetchBookings = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('bookings')
+        .select('*');
+      
+      if (error) throw error;
+      setBookings(data || []);
+    } catch (err) {
+      setError('Failed to fetch bookings');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  const fetchUsers = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*');
+      
+      if (error) throw error;
+      setUsers(data || []);
+    } catch (err) {
+      setError('Failed to fetch users');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  const fetchAttendanceRecords = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('attendance')
+        .select('*');
+      
+      if (error) throw error;
+      setAttendanceRecords(data || []);
+    } catch (err) {
+      setError('Failed to fetch attendance records');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  const fetchRosterEntries = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('roster')
+        .select('*');
+      
+      if (error) throw error;
+      setRosterEntries(data || []);
+    } catch (err) {
+      setError('Failed to fetch roster entries');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  const fetchSiteSettings = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('site_settings')
+        .select('*')
+        .single();
+      
+      if (error && error.code !== 'PGRST116') throw error;
+      setSiteSettings(data);
+      if (data) setSettingsForm(data);
+    } catch (err) {
+      setError('Failed to fetch site settings');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  const fetchAnalyticsData = async () => {
+    try {
+      setLoading(true);
+      // In a real app, these would be actual API calls
+      // For now, we'll use mock data
+      const mockData: AnalyticsData = {
+        revenue: [
+          { month: 'Jan', amount: 4000 },
+          { month: 'Feb', amount: 3000 },
+          { month: 'Mar', amount: 5000 },
+          { month: 'Apr', amount: 4500 },
+          { month: 'May', amount: 6000 },
+          { month: 'Jun', amount: 5500 }
+        ],
+        bookings: [
+          { day: 'Mon', count: 12 },
+          { day: 'Tue', count: 15 },
+          { day: 'Wed', count: 18 },
+          { day: 'Thu', count: 14 },
+          { day: 'Fri', count: 20 },
+          { day: 'Sat', count: 25 },
+          { day: 'Sun', count: 10 }
+        ],
+        servicePopularity: [
+          { name: 'Haircut', count: 45 },
+          { name: 'Beard Trim', count: 30 },
+          { name: 'Shave', count: 20 },
+          { name: 'Hair Color', count: 15 }
+        ],
+        barberPerformance: [
+          { name: 'John', appointments: 45, revenue: 2250 },
+          { name: 'Mike', appointments: 38, revenue: 1900 },
+          { name: 'Sarah', appointments: 32, revenue: 1600 },
+          { name: 'Alex', appointments: 28, revenue: 1400 }
+        ]
+      };
+      setAnalyticsData(mockData);
+    } catch (err) {
+      setError('Failed to fetch analytics data');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  // Service management functions
+  const handleAddService = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase.functions.invoke('add-service', {
+        body: serviceForm
+      });
+      
+      if (error) throw error;
+      setServices([...services, data]);
+      setServiceForm({
+        name: '',
+        category: '',
+        duration: 30,
+        price: 0,
+        description: ''
+      });
+    } catch (err) {
+      setError('Failed to add service');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  const handleUpdateService = async (id: string) => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase.functions.invoke('update-service', {
+        body: { id, ...serviceForm }
+      });
+      
+      if (error) throw error;
+      setServices(services.map(service => 
+        service.id === id ? { ...service, ...data } : service
+      ));
+      setEditingService(null);
+      setServiceForm({
+        name: '',
+        category: '',
+        duration: 30,
+        price: 0,
+        description: ''
+      });
+    } catch (err) {
+      setError('Failed to update service');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  const handleDeleteService = async (id: string) => {
+    try {
+      setLoading(true);
+      const { error } = await supabase.functions.invoke('delete-service', {
+        body: { id }
+      });
+      
+      if (error) throw error;
+      setServices(services.filter(service => service.id !== id));
+    } catch (err) {
+      setError('Failed to delete service');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  const startEditService = (service: Service) => {
+    setEditingService(service.id);
+    setServiceForm(service);
+  };
+  
+  // Product management functions
+  const handleAddProduct = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('products')
+        .insert(productForm)
+        .select();
+      
+      if (error) throw error;
+      setProducts([...products, data[0]]);
+      setProductForm({
+        name: '',
+        category: '',
+        price: 0,
+        stock_quantity: 0,
+        description: ''
+      });
+    } catch (err) {
+      setError('Failed to add product');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  const handleUpdateProduct = async (id: string) => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('products')
+        .update(productForm)
+        .eq('id', id)
+        .select();
+      
+      if (error) throw error;
+      setProducts(products.map(product => 
+        product.id === id ? { ...product, ...data[0] } : product
+      ));
+      setEditingProduct(null);
+      setProductForm({
+        name: '',
+        category: '',
+        price: 0,
+        stock_quantity: 0,
+        description: ''
+      });
+    } catch (err) {
+      setError('Failed to update product');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  const handleDeleteProduct = async (id: string) => {
+    try {
+      setLoading(true);
+      const { error } = await supabase
+        .from('products')
+        .delete()
+        .eq('id', id);
+      
+      if (error) throw error;
+      setProducts(products.filter(product => product.id !== id));
+    } catch (err) {
+      setError('Failed to delete product');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  const startEditProduct = (product: Product) => {
+    setEditingProduct(product.id);
+    setProductForm(product);
+  };
+  
+  // Barber management functions
+  const handleAddBarber = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('barbers')
+        .insert(barberForm)
+        .select();
+      
+      if (error) throw error;
+      setBarbers([...barbers, data[0]]);
+      setBarberForm({
+        name: '',
+        email: '',
+        specialties: [],
+        bio: '',
+        working_hours: {
+          monday: { start: '09:00', end: '17:00' },
+          tuesday: { start: '09:00', end: '17:00' },
+          wednesday: { start: '09:00', end: '17:00' },
+          thursday: { start: '09:00', end: '17:00' },
+          friday: { start: '09:00', end: '17:00' },
+          saturday: { start: '09:00', end: '17:00' },
+          sunday: { start: '09:00', end: '17:00' }
+        }
+      });
+    } catch (err) {
+      setError('Failed to add barber');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  const handleUpdateBarber = async (id: string) => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('barbers')
+        .update(barberForm)
+        .eq('id', id)
+        .select();
+      
+      if (error) throw error;
+      setBarbers(barbers.map(barber => 
+        barber.id === id ? { ...barber, ...data[0] } : barber
+      ));
+      setEditingBarber(null);
+      setBarberForm({
+        name: '',
+        email: '',
+        specialties: [],
+        bio: '',
+        working_hours: {
+          monday: { start: '09:00', end: '17:00' },
+          tuesday: { start: '09:00', end: '17:00' },
+          wednesday: { start: '09:00', end: '17:00' },
+          thursday: { start: '09:00', end: '17:00' },
+          friday: { start: '09:00', end: '17:00' },
+          saturday: { start: '09:00', end: '17:00' },
+          sunday: { start: '09:00', end: '17:00' }
+        }
+      });
+    } catch (err) {
+      setError('Failed to update barber');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  const handleDeleteBarber = async (id: string) => {
+    try {
+      setLoading(true);
+      const { error } = await supabase
+        .from('barbers')
+        .delete()
+        .eq('id', id);
+      
+      if (error) throw error;
+      setBarbers(barbers.filter(barber => barber.id !== id));
+    } catch (err) {
+      setError('Failed to delete barber');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  const startEditBarber = (barber: Barber) => {
+    setEditingBarber(barber.id);
+    setBarberForm(barber);
+  };
+  
+  // Booking management functions
+  const handleUpdateBookingStatus = async (id: string, status: Booking['status']) => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('bookings')
+        .update({ status })
+        .eq('id', id)
+        .select();
+      
+      if (error) throw error;
+      setBookings(bookings.map(booking => 
+        booking.id === id ? { ...booking, ...data[0] } : booking
+      ));
+    } catch (err) {
+      setError('Failed to update booking status');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  // User management functions
+  const handleUpdateUserRole = async (id: string, role: User['role']) => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('profiles')
+        .update({ role })
+        .eq('id', id)
+        .select();
+      
+      if (error) throw error;
+      setUsers(users.map(user => 
+        user.id === id ? { ...user, ...data[0] } : user
+      ));
+    } catch (err) {
+      setError('Failed to update user role');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  // Attendance management functions
+  const handleClockIn = async (barberId: string) => {
+    try {
+      setLoading(true);
+      const now = new Date().toISOString();
+      const today = new Date().toISOString().split('T')[0];
+      
+      // Check if already clocked in today
+      const existingRecord = attendanceRecords.find(
+        record => record.barber_id === barberId && record.date === today
+      );
+      
+      if (existingRecord && existingRecord.clock_in && !existingRecord.clock_out) {
+        setError('Barber already clocked in');
+        return;
+      }
+      
+      const { data, error } = await supabase
+        .from('attendance')
+        .insert({
+          barber_id: barberId,
+          date: today,
+          clock_in: now
+        })
+        .select();
+      
+      if (error) throw error;
+      setAttendanceRecords([...attendanceRecords, data[0]]);
+    } catch (err) {
+      setError('Failed to clock in');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  const handleClockOut = async (attendanceId: string) => {
+    try {
+      setLoading(true);
+      const now = new Date().toISOString();
+      
+      const { data, error } = await supabase
+        .from('attendance')
+        .update({ clock_out: now })
+        .eq('id', attendanceId)
+        .select();
+      
+      if (error) throw error;
+      setAttendanceRecords(attendanceRecords.map(record => 
+        record.id === attendanceId ? { ...record, ...data[0] } : record
+      ));
+    } catch (err) {
+      setError('Failed to clock out');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  // Roster management functions
+  const handleAddRosterEntry = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('roster')
+        .insert({
+          barber_id: barberForm.user_id,
+          day_of_week: 'monday', // Default
+          shift_start: '09:00',
+          shift_end: '17:00',
+          is_day_off: false
+        })
+        .select();
+      
+      if (error) throw error;
+      setRosterEntries([...rosterEntries, data[0]]);
+    } catch (err) {
+      setError('Failed to add roster entry');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  const handleUpdateRosterEntry = async (id: string, updates: Partial<RosterEntry>) => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('roster')
+        .update(updates)
+        .eq('id', id)
+        .select();
+      
+      if (error) throw error;
+      setRosterEntries(rosterEntries.map(entry => 
+        entry.id === id ? { ...entry, ...data[0] } : entry
+      ));
+    } catch (err) {
+      setError('Failed to update roster entry');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  const handleDeleteRosterEntry = async (id: string) => {
+    try {
+      setLoading(true);
+      const { error } = await supabase
+        .from('roster')
+        .delete()
+        .eq('id', id);
+      
+      if (error) throw error;
+      setRosterEntries(rosterEntries.filter(entry => entry.id !== id));
+    } catch (err) {
+      setError('Failed to delete roster entry');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  // Site settings functions
+  const handleUpdateSiteSettings = async () => {
+    try {
+      setLoading(true);
+      
+      if (siteSettings) {
+        // Update existing settings
+        const { data, error } = await supabase
+          .from('site_settings')
+          .update(settingsForm)
+          .eq('id', siteSettings.id)
+          .select();
+        
+        if (error) throw error;
+        setSiteSettings(data[0]);
+      } else {
+        // Create new settings
+        const { data, error } = await supabase
+          .from('site_settings')
+          .insert(settingsForm)
+          .select();
+        
+        if (error) throw error;
+        setSiteSettings(data[0]);
+      }
+    } catch (err) {
+      setError('Failed to update site settings');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  // Helper functions
+  const getBarberName = (barberId: string) => {
+    const barber = barbers.find(b => b.id === barberId);
+    return barber ? barber.name : 'Unknown Barber';
+  };
+  
+  const getServiceName = (serviceId: string) => {
+    const service = services.find(s => s.id === serviceId);
+    return service ? service.name : 'Unknown Service';
+  };
+  
+  const getUserName = (userId: string) => {
+    const user = users.find(u => u.id === userId);
+    return user && user.profile 
+      ? `${user.profile.first_name} ${user.profile.last_name}` 
+      : 'Unknown User';
+  };
+  
+  // Render functions for each tab
+  const renderServicesTab = () => (
+    <div className="admin-section">
+      <h2>Service Management</h2>
+      
+      {error && <div className="error-message">{error}</div>}
+      
+      <div className="form-container">
+        <h3>{editingService ? 'Edit Service' : 'Add New Service'}</h3>
+        <div className="form-row">
+          <input
+            type="text"
+            placeholder="Service Name"
+            value={serviceForm.name || ''}
+            onChange={(e) => setServiceForm({ ...serviceForm, name: e.target.value })}
+          />
+          <input
+            type="text"
+            placeholder="Category"
+            value={serviceForm.category || ''}
+            onChange={(e) => setServiceForm({ ...serviceForm, category: e.target.value })}
+          />
+        </div>
+        <div className="form-row">
+          <input
+            type="number"
+            placeholder="Duration (minutes)"
+            value={serviceForm.duration || 30}
+            onChange={(e) => setServiceForm({ ...serviceForm, duration: parseInt(e.target.value) })}
+          />
+          <input
+            type="number"
+            placeholder="Price ($)"
+            value={serviceForm.price || 0}
+            onChange={(e) => setServiceForm({ ...serviceForm, price: parseFloat(e.target.value) })}
+          />
+        </div>
+        <textarea
+          placeholder="Description"
+          value={serviceForm.description || ''}
+          onChange={(e) => setServiceForm({ ...serviceForm, description: e.target.value })}
+        />
+        <div className="form-actions">
+          {editingService ? (
+            <>
+              <button 
+                onClick={() => handleUpdateService(editingService)} 
+                disabled={loading}
+              >
+                Update Service
+              </button>
+              <button onClick={() => {
+                setEditingService(null);
+                setServiceForm({
+                  name: '',
+                  category: '',
+                  duration: 30,
+                  price: 0,
+                  description: ''
+                });
+              }}>
+                Cancel
+              </button>
+            </>
+          ) : (
+            <button onClick={handleAddService} disabled={loading}>
+              Add Service
+            </button>
+          )}
+        </div>
+      </div>
+      
+      <div className="cards-container">
+        {services.map(service => (
+          <div key={service.id} className="service-card">
+            <h3>{service.name}</h3>
+            <p>Category: {service.category}</p>
+            <p>Duration: {service.duration} minutes</p>
+            <p>Price: ${service.price.toFixed(2)}</p>
+            {service.description && <p>{service.description}</p>}
+            <div className="card-actions">
+              <button onClick={() => startEditService(service)}>Edit</button>
+              <button onClick={() => handleDeleteService(service.id)}>Delete</button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+  
+  const renderProductsTab = () => (
+    <div className="admin-section">
+      <h2>Product Management</h2>
+      
+      {error && <div className="error-message">{error}</div>}
+      
+      <div className="form-container">
+        <h3>{editingProduct ? 'Edit Product' : 'Add New Product'}</h3>
+        <div className="form-row">
+          <input
+            type="text"
+            placeholder="Product Name"
+            value={productForm.name || ''}
+            onChange={(e) => setProductForm({ ...productForm, name: e.target.value })}
+          />
+          <input
+            type="text"
+            placeholder="Category"
+            value={productForm.category || ''}
+            onChange={(e) => setProductForm({ ...productForm, category: e.target.value })}
+          />
+        </div>
+        <div className="form-row">
+          <input
+            type="number"
+            placeholder="Price ($)"
+            value={productForm.price || 0}
+            onChange={(e) => setProductForm({ ...productForm, price: parseFloat(e.target.value) })}
+          />
+          <input
+            type="number"
+            placeholder="Stock Quantity"
+            value={productForm.stock_quantity || 0}
+            onChange={(e) => setProductForm({ ...productForm, stock_quantity: parseInt(e.target.value) })}
+          />
+        </div>
+        <textarea
+          placeholder="Description"
+          value={productForm.description || ''}
+          onChange={(e) => setProductForm({ ...productForm, description: e.target.value })}
+        />
+        <div className="form-actions">
+          {editingProduct ? (
+            <>
+              <button 
+                onClick={() => handleUpdateProduct(editingProduct)} 
+                disabled={loading}
+              >
+                Update Product
+              </button>
+              <button onClick={() => {
+                setEditingProduct(null);
+                setProductForm({
+                  name: '',
+                  category: '',
+                  price: 0,
+                  stock_quantity: 0,
+                  description: ''
+                });
+              }}>
+                Cancel
+              </button>
+            </>
+          ) : (
+            <button onClick={handleAddProduct} disabled={loading}>
+              Add Product
+            </button>
+          )}
+        </div>
+      </div>
+      
+      <div className="cards-container">
+        {products.map(product => (
+          <div key={product.id} className="product-card">
+            <h3>{product.name}</h3>
+            <p>Category: {product.category}</p>
+            <p>Price: ${product.price.toFixed(2)}</p>
+            <p>Stock: {product.stock_quantity}</p>
+            {product.description && <p>{product.description}</p>}
+            <div className="card-actions">
+              <button onClick={() => startEditProduct(product)}>Edit</button>
+              <button onClick={() => handleDeleteProduct(product.id)}>Delete</button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+  
+  const renderBarbersTab = () => (
+    <div className="admin-section">
+      <h2>Barber Management</h2>
+      
+      {error && <div className="error-message">{error}</div>}
+      
+      <div className="form-container">
+        <h3>{editingBarber ? 'Edit Barber' : 'Add New Barber'}</h3>
+        <div className="form-row">
+          <input
+            type="text"
+            placeholder="Barber Name"
+            value={barberForm.name || ''}
+            onChange={(e) => setBarberForm({ ...barberForm, name: e.target.value })}
+          />
+          <input
+            type="email"
+            placeholder="Email"
+            value={barberForm.email || ''}
+            onChange={(e) => setBarberForm({ ...barberForm, email: e.target.value })}
+          />
+        </div>
+        <div className="form-row">
+          <input
+            type="text"
+            placeholder="Specialties (comma separated)"
+            value={barberForm.specialties?.join(', ') || ''}
+            onChange={(e) => setBarberForm({ 
+              ...barberForm, 
+              specialties: e.target.value.split(',').map(s => s.trim()).filter(s => s) 
+            })}
+          />
+        </div>
+        <textarea
+          placeholder="Bio"
+          value={barberForm.bio || ''}
+          onChange={(e) => setBarberForm({ ...barberForm, bio: e.target.value })}
+        />
+        <div className="form-actions">
+          {editingBarber ? (
+            <>
+              <button 
+                onClick={() => handleUpdateBarber(editingBarber)} 
+                disabled={loading}
+              >
+                Update Barber
+              </button>
+              <button onClick={() => {
+                setEditingBarber(null);
+                setBarberForm({
+                  name: '',
+                  email: '',
+                  specialties: [],
+                  bio: '',
+                  working_hours: {
+                    monday: { start: '09:00', end: '17:00' },
+                    tuesday: { start: '09:00', end: '17:00' },
+                    wednesday: { start: '09:00', end: '17:00' },
+                    thursday: { start: '09:00', end: '17:00' },
+                    friday: { start: '09:00', end: '17:00' },
+                    saturday: { start: '09:00', end: '17:00' },
+                    sunday: { start: '09:00', end: '17:00' }
+                  }
+                });
+              }}>
+                Cancel
+              </button>
+            </>
+          ) : (
+            <button onClick={handleAddBarber} disabled={loading}>
+              Add Barber
+            </button>
+          )}
+        </div>
+      </div>
+      
+      <div className="cards-container">
+        {barbers.map(barber => (
+          <div key={barber.id} className="barber-card">
+            <h3>{barber.name}</h3>
+            <p>Email: {barber.email}</p>
+            <p>Specialties: {barber.specialties.join(', ')}</p>
+            {barber.bio && <p>{barber.bio}</p>}
+            <div className="working-hours">
+              <h4>Working Hours:</h4>
+              <ul>
+                {Object.entries(barber.working_hours).map(([day, hours]) => (
+                  <li key={day}>
+                    {day.charAt(0).toUpperCase() + day.slice(1)}: {hours.start} - {hours.end}
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className="card-actions">
+              <button onClick={() => startEditBarber(barber)}>Edit</button>
+              <button onClick={() => handleDeleteBarber(barber.id)}>Delete</button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+  
+  const renderBookingsTab = () => (
+    <div className="admin-section">
+      <h2>Booking Management</h2>
+      
+      {error && <div className="error-message">{error}</div>}
+      
+      <div className="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Customer</th>
+              <th>Barber</th>
+              <th>Service</th>
+              <th>Date & Time</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {bookings.map(booking => (
+              <tr key={booking.id}>
+                <td>{booking.id}</td>
+                <td>{getUserName(booking.customer_id)}</td>
+                <td>{getBarberName(booking.barber_id)}</td>
+                <td>{getServiceName(booking.service_id)}</td>
+                <td>{new Date(booking.appointment_time).toLocaleString()}</td>
+                <td>
+                  <span className={`status ${booking.status}`}>
+                    {booking.status}
+                  </span>
+                </td>
+                <td>
+                  <div className="action-buttons">
+                    {booking.status === 'pending' && (
+                      <button onClick={() => handleUpdateBookingStatus(booking.id, 'confirmed')}>
+                        Confirm
+                      </button>
+                    )}
+                    {booking.status === 'confirmed' && (
+                      <button onClick={() => handleUpdateBookingStatus(booking.id, 'completed')}>
+                        Complete
+                      </button>
+                    )}
+                    {(booking.status === 'pending' || booking.status === 'confirmed') && (
+                      <button onClick={() => handleUpdateBookingStatus(booking.id, 'cancelled')}>
+                        Cancel
+                      </button>
+                    )}
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+  
+  const renderAttendanceTab = () => (
+    <div className="admin-section">
+      <h2>Attendance Tracking</h2>
+      
+      {error && <div className="error-message">{error}</div>}
+      
+      <div className="form-container">
+        <h3>Clock In/Out</h3>
+        <div className="form-row">
+          <select 
+            value={barberForm.user_id || ''} 
+            onChange={(e) => setBarberForm({ ...barberForm, user_id: e.target.value })}
+          >
+            <option value="">Select Barber</option>
+            {barbers.map(barber => (
+              <option key={barber.id} value={barber.id}>
+                {barber.name}
+              </option>
+            ))}
+          </select>
+          <button 
+            onClick={() => barberForm.user_id && handleClockIn(barberForm.user_id)} 
+            disabled={loading || !barberForm.user_id}
+          >
+            Clock In
+          </button>
+        </div>
+      </div>
+      
+      <div className="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Barber</th>
+              <th>Date</th>
+              <th>Clock In</th>
+              <th>Clock Out</th>
+              <th>Break Start</th>
+              <th>Break End</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {attendanceRecords.map(record => (
+              <tr key={record.id}>
+                <td>{record.id}</td>
+                <td>{getBarberName(record.barber_id)}</td>
+                <td>{record.date}</td>
+                <td>{new Date(record.clock_in).toLocaleTimeString()}</td>
+                <td>
+                  {record.clock_out 
+                    ? new Date(record.clock_out).toLocaleTimeString() 
+                    : 'Not clocked out'}
+                </td>
+                <td>
+                  {record.break_start 
+                    ? new Date(record.break_start).toLocaleTimeString() 
+                    : 'No break'}
+                </td>
+                <td>
+                  {record.break_end 
+                    ? new Date(record.break_end).toLocaleTimeString() 
+                    : 'Break not ended'}
+                </td>
+                <td>
+                  <div className="action-buttons">
+                    {!record.clock_out && (
+                      <button onClick={() => handleClockOut(record.id)}>
+                        Clock Out
+                      </button>
+                    )}
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+  
+  const renderRosterTab = () => (
+    <div className="admin-section">
+      <h2>Roster Management</h2>
+      
+      {error && <div className="error-message">{error}</div>}
+      
+      <div className="form-container">
+        <h3>Add Roster Entry</h3>
+        <div className="form-row">
+          <select 
+            value={barberForm.user_id || ''} 
+            onChange={(e) => setBarberForm({ ...barberForm, user_id: e.target.value })}
+          >
+            <option value="">Select Barber</option>
+            {barbers.map(barber => (
+              <option key={barber.id} value={barber.id}>
+                {barber.name}
+              </option>
+            ))}
+          </select>
+          <select defaultValue="monday">
+            <option value="monday">Monday</option>
+            <option value="tuesday">Tuesday</option>
+            <option value="wednesday">Wednesday</option>
+            <option value="thursday">Thursday</option>
+            <option value="friday">Friday</option>
+            <option value="saturday">Saturday</option>
+            <option value="sunday">Sunday</option>
+          </select>
+          <input type="time" defaultValue="09:00" />
+          <input type="time" defaultValue="17:00" />
+          <button onClick={handleAddRosterEntry} disabled={loading}>
+            Add to Roster
+          </button>
+        </div>
+      </div>
+      
+      <div className="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Barber</th>
+              <th>Day</th>
+              <th>Shift Start</th>
+              <th>Shift End</th>
+              <th>Day Off</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rosterEntries.map(entry => (
+              <tr key={entry.id}>
+                <td>{entry.id}</td>
+                <td>{getBarberName(entry.barber_id)}</td>
+                <td>{entry.day_of_week.charAt(0).toUpperCase() + entry.day_of_week.slice(1)}</td>
+                <td>{entry.shift_start}</td>
+                <td>{entry.shift_end}</td>
+                <td>{entry.is_day_off ? 'Yes' : 'No'}</td>
+                <td>
+                  <div className="action-buttons">
+                    <button 
+                      onClick={() => handleUpdateRosterEntry(entry.id, { is_day_off: !entry.is_day_off })}
+                    >
+                      {entry.is_day_off ? 'Set Working Day' : 'Set Day Off'}
+                    </button>
+                    <button onClick={() => handleDeleteRosterEntry(entry.id)}>
+                      Remove
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+  
+  const renderAnalyticsTab = () => (
+    <div className="admin-section">
+      <h2>Analytics Dashboard</h2>
+      
+      {error && <div className="error-message">{error}</div>}
+      
+      {analyticsData && (
+        <div className="analytics-container">
+          <div className="chart-container">
+            <h3>Revenue Trend</h3>
+            <ResponsiveContainer width="100%" height={300}>
+              <LineChart data={analyticsData.revenue}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="month" />
+                <YAxis />
+                <Tooltip formatter={(value) => `$${value}`} />
+                <Line type="monotone" dataKey="amount" stroke="#8884d8" />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+          
+          <div className="chart-container">
+            <h3>Bookings by Day</h3>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={analyticsData.bookings}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="day" />
+                <YAxis />
+                <Tooltip />
+                <Bar dataKey="count" fill="#82ca9d" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+          
+          <div className="chart-container">
+            <h3>Service Popularity</h3>
+            <ResponsiveContainer width="100%" height={300}>
+              <PieChart>
+                <Pie
+                  data={analyticsData.servicePopularity}
+                  cx="50%"
+                  cy="50%"
+                  labelLine={false}
+                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                  outerRadius={80}
+                  fill="#8884d8"
+                  dataKey="count"
+                >
+                  {analyticsData.servicePopularity.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={['#0088FE', '#00C49F', '#FFBB28', '#FF8042'][index % 4]} />
+                  ))}
+                </Pie>
+                <Tooltip />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+          
+          <div className="chart-container">
+            <h3>Barber Performance</h3>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={analyticsData.barberPerformance}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="name" />
+                <YAxis yAxisId="left" orientation="left" stroke="#8884d8" />
+                <YAxis yAxisId="right" orientation="right" stroke="#82ca9d" />
+                <Tooltip />
+                <Bar yAxisId="left" dataKey="appointments" fill="#8884d8" name="Appointments" />
+                <Bar yAxisId="right" dataKey="revenue" fill="#82ca9d" name="Revenue" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+  
+  const renderSettingsTab = () => (
+    <div className="admin-section">
+      <h2>Site Settings</h2>
+      
+      {error && <div className="error-message">{error}</div>}
+      
+      <div className="form-container">
+        <h3>Business Information</h3>
+        <div className="form-row">
+          <input
+            type="text"
+            placeholder="Shop Name"
+            value={settingsForm.shop_name || ''}
+            onChange={(e) => setSettingsForm({ ...settingsForm, shop_name: e.target.value })}
+          />
+          <input
+            type="email"
+            placeholder="Contact Email"
+            value={settingsForm.contact_email || ''}
+            onChange={(e) => setSettingsForm({ ...settingsForm, contact_email: e.target.value })}
+          />
+        </div>
+        <div className="form-row">
+          <input
+            type="tel"
+            placeholder="Contact Phone"
+            value={settingsForm.contact_phone || ''}
+            onChange={(e) => setSettingsForm({ ...settingsForm, contact_phone: e.target.value })}
+          />
+          <input
+            type="text"
+            placeholder="Address"
+            value={settingsForm.address || ''}
+            onChange={(e) => setSettingsForm({ ...settingsForm, address: e.target.value })}
+          />
+        </div>
+        <textarea
+          placeholder="About Text"
+          value={settingsForm.about_text || ''}
+          onChange={(e) => setSettingsForm({ ...settingsForm, about_text: e.target.value })}
+        />
+        <div className="form-actions">
+          <button onClick={handleUpdateSiteSettings} disabled={loading}>
+            Update Settings
+          </button>
+        </div>
+      </div>
+      
+      <div className="form-container">
+        <h3>Hero Image</h3>
+        <div className="form-row">
+          <input
+            type="url"
+            placeholder="Hero Image URL"
+            value={settingsForm.hero_image_url || ''}
+            onChange={(e) => setSettingsForm({ ...settingsForm, hero_image_url: e.target.value })}
+          />
+        </div>
+        {settingsForm.hero_image_url && (
+          <div className="image-preview">
+            <img src={settingsForm.hero_image_url} alt="Hero" />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+  
+  const renderUsersTab = () => (
+    <div className="admin-section">
+      <h2>User Management</h2>
+      
+      {error && <div className="error-message">{error}</div>}
+      
+      <div className="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Name</th>
+              <th>Email</th>
+              <th>Phone</th>
+              <th>Role</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {users.map(user => (
+              <tr key={user.id}>
+                <td>{user.id}</td>
+                <td>
+                  {user.profile 
+                    ? `${user.profile.first_name} ${user.profile.last_name}` 
+                    : 'N/A'}
+                </td>
+                <td>{user.email}</td>
+                <td>{user.profile?.phone || 'N/A'}</td>
+                <td>
+                  <span className={`role ${user.role}`}>
+                    {user.role}
+                  </span>
+                </td>
+                <td>
+                  <div className="action-buttons">
+                    <select 
+                      value={user.role} 
+                      onChange={(e) => handleUpdateUserRole(user.id, e.target.value as User['role'])}
+                    >
+                      <option value="customer">Customer</option>
+                      <option value="barber">Barber</option>
+                      <option value="admin">Admin</option>
+                    </select>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+  
+  return (
+    <div className="admin-dashboard">
+      <div className="admin-header">
+        <h1>LuxeCut Barber Shop - Admin Dashboard</h1>
+      </div>
+      
+      <div className="admin-content">
+        <div className="admin-sidebar">
+          <ul className="nav-menu">
+            <li 
+              className={activeTab === 'services' ? 'active' : ''}
+              onClick={() => setActiveTab('services')}
+            >
+              Services
+            </li>
+            <li 
+              className={activeTab === 'products' ? 'active' : ''}
+              onClick={() => setActiveTab('products')}
+            >
+              Products
+            </li>
+            <li 
+              className={activeTab === 'barbers' ? 'active' : ''}
+              onClick={() => setActiveTab('barbers')}
+            >
+              Barbers
+            </li>
+            <li 
+              className={activeTab === 'bookings' ? 'active' : ''}
+              onClick={() => setActiveTab('bookings')}
+            >
+              Bookings
+            </li>
+            <li 
+              className={activeTab === 'attendance' ? 'active' : ''}
+              onClick={() => setActiveTab('attendance')}
+            >
+              Attendance
+            </li>
+            <li 
+              className={activeTab === 'roster' ? 'active' : ''}
+              onClick={() => setActiveTab('roster')}
+            >
+              Roster
+            </li>
+            <li 
+              className={activeTab === 'analytics' ? 'active' : ''}
+              onClick={() => setActiveTab('analytics')}
+            >
+              Analytics
+            </li>
+            <li 
+              className={activeTab === 'settings' ? 'active' : ''}
+              onClick={() => setActiveTab('settings')}
+            >
+              Site Settings
+            </li>
+            <li 
+              className={activeTab === 'users' ? 'active' : ''}
+              onClick={() => setActiveTab('users')}
+            >
+              Users
+            </li>
+          </ul>
+        </div>
+        
+        <div className="admin-main">
+          {loading && <div className="loading-indicator">Loading...</div>}
+          
+          {activeTab === 'services' && renderServicesTab()}
+          {activeTab === 'products' && renderProductsTab()}
+          {activeTab === 'barbers' && renderBarbersTab()}
+          {activeTab === 'bookings' && renderBookingsTab()}
+          {activeTab === 'attendance' && renderAttendanceTab()}
+          {activeTab === 'roster' && renderRosterTab()}
+          {activeTab === 'analytics' && renderAnalyticsTab()}
+          {activeTab === 'settings' && renderSettingsTab()}
+          {activeTab === 'users' && renderUsersTab()}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default AdminDashboardPage;

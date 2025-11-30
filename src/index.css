@@ -1,0 +1,74 @@
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Satoshi:wght@300;400;500;700&family=Inter:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+    --color-midnight-bg: #050505;
+    --color-card-bg: #121212;
+    --color-gold-text: #E5C558;
+    --color-gold-dim: #AA8A28;
+}
+
+@layer base {
+    body {
+        @apply bg-midnight text-white font-sans;
+    }
+
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+        @apply font-serif tracking-wide;
+    }
+}
+
+@layer utilities {
+    .bg-midnight {
+        background-color: var(--color-midnight-bg);
+    }
+
+    .bg-glass {
+        background-color: rgba(18, 18, 18, 0.6);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+    }
+
+    .bg-glass-card {
+        background-color: rgba(18, 18, 18, 0.8);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.05'/%3E%3C/svg%3E");
+    }
+
+    .text-gold {
+        color: var(--color-gold-text);
+    }
+
+    .bg-gold-gradient {
+        background: linear-gradient(135deg, #D4AF37 0%, #F2D06B 50%, #AA8A28 100%);
+    }
+
+    .text-gold-gradient {
+        background: linear-gradient(135deg, #D4AF37 0%, #F2D06B 50%, #AA8A28 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        color: transparent;
+    }
+
+    .border-gold {
+        border-color: var(--color-gold-text);
+    }
+
+    .border-glass {
+        border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .shadow-glow {
+        box-shadow: 0 0 20px rgba(212, 175, 55, 0.15);
+    }
+}

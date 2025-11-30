@@ -1,0 +1,65 @@
+# ============================================
+# CRITICAL SECURITY - Environment Files
+# ============================================
+.env
+.env.local
+.env.*.local
+.env.production
+.env.development
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# ============================================
+# Temporary & Backup Files
+# ============================================
+tmp_*
+temp_*
+*.tmp
+*.temp
+*.backup
+*.old
+*.bak
+
+# ============================================
+# Supabase Temporary Files
+# ============================================
+supabase/.temp/
+.supabase/
+
+# ============================================
+# SQL Debug & Test Files
+# ============================================
+debug_*.sql
+test_*.sql
+check_*.sql
+verify_*.sql
+cleanup_*.sql
+
+# ============================================
+# Archive & Development Artifacts
+# ============================================
+archive/
+backups/
