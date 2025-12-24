@@ -5,6 +5,7 @@ import { supabase } from '../services/supabaseClient';
 import { User, Mail, Lock, Camera, Save, Check, AlertCircle, Loader } from 'lucide-react';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import { logger } from '../src/lib/logger';
 
 const BarberProfilePage: React.FC = () => {
   const { user, refreshProfile } = useAuth();
@@ -58,34 +59,34 @@ const BarberProfilePage: React.FC = () => {
       // Get barber ID and current photo URL
       try {
         barberId = await api.getBarberIdByUserId(user.id);
-        console.log('🔍 Found barber ID:', barberId);
+        logger.info('🔍 Found barber ID:', barberId, 'BarberProfilePage');
 
         if (barberId) {
           // Get the current photo URL from barbers table
           const barberData = await api.getBarberById(barberId);
           oldPhotoUrl = barberData?.photo || null;
-          console.log('🔍 Current photo URL:', oldPhotoUrl);
+          logger.info('🔍 Current photo URL:', oldPhotoUrl, 'BarberProfilePage');
         } else {
-          console.error('❌ No barber ID found for user:', user.id);
+          logger.error('❌ No barber ID found for user:', user.id, 'BarberProfilePage');
           toast.error("Could not find your barber profile. Please contact support.");
           return null;
         }
       } catch (error) {
-        console.error("❌ Failed to get barber data:", error);
+        logger.error("❌ Failed to get barber data:", error, 'BarberProfilePage');
         toast.error("Failed to load your profile data.");
         return null;
       }
 
       // Upload new photo to barber-photos bucket
       const fileName = `barber-${user.id}-${Date.now()}.jpg`;
-      console.log('📤 Uploading photo:', fileName);
+      logger.info('📤 Uploading photo:', fileName, 'BarberProfilePage');
 
       try {
         const result = await api.uploadSiteImage(selectedFile, 'barber-photos', fileName);
         publicUrl = result.publicUrl;
-        console.log('✅ Upload successful:', publicUrl);
-      } catch (uploadError: any) {
-        console.error("❌ Upload to 'barber-photos' failed:", uploadError);
+        logger.info('✅ Upload successful:', publicUrl, 'BarberProfilePage');
+      } catch (uploadError: Error | unknown) {
+        logger.error("❌ Upload to 'barber-photos' failed:", uploadError, 'BarberProfilePage');
         throw new Error("Failed to upload image. Please ensure 'barber-photos' bucket exists.");
       }
 
@@ -95,12 +96,12 @@ const BarberProfilePage: React.FC = () => {
 
       // Sync avatar with barbers table
       if (barberId) {
-        console.log('🔄 Syncing to barbers table...');
+        logger.info('🔄 Syncing to barbers table...', undefined, 'BarberProfilePage');
         try {
           await api.updateBarber(barberId, { photo: publicUrl });
-          console.log('✅ Barbers table updated successfully');
+          logger.info('✅ Barbers table updated successfully', undefined, 'BarberProfilePage');
         } catch (updateError) {
-          console.error('❌ Failed to update barbers table:', updateError);
+          logger.error('❌ Failed to update barbers table:', updateError, 'BarberProfilePage');
           toast.error("Photo uploaded but failed to update profile. Please refresh the page.");
           return null;
         }
@@ -118,20 +119,20 @@ const BarberProfilePage: React.FC = () => {
             const [bucket, ...pathParts] = urlParts[1].split('/');
             const filePath = pathParts.join('/');
 
-            console.log(`🗑️ Deleting old photo: ${bucket}/${filePath}`);
+            logger.info(`🗑️ Deleting old photo: ${bucket}/${filePath}`, undefined, 'BarberProfilePage');
 
             const { error: deleteError } = await supabase!.storage
               .from(bucket)
               .remove([filePath]);
 
             if (deleteError) {
-              console.warn("⚠️ Failed to delete old photo:", deleteError);
+              logger.warn("⚠️ Failed to delete old photo:", deleteError, 'BarberProfilePage');
             } else {
-              console.log("✅ Old photo deleted successfully");
+              logger.info("✅ Old photo deleted successfully", undefined, 'BarberProfilePage');
             }
           }
         } catch (deleteError) {
-          console.warn("⚠️ Error deleting old photo:", deleteError);
+          logger.warn("⚠️ Error deleting old photo:", deleteError, 'BarberProfilePage');
         }
       }
 
@@ -140,8 +141,8 @@ const BarberProfilePage: React.FC = () => {
       setPreviewUrl(null);
 
       return publicUrl;
-    } catch (error: any) {
-      console.error("❌ Failed to process avatar:", error);
+    } catch (error: Error | unknown) {
+      logger.error("❌ Failed to process avatar:", error, 'BarberProfilePage');
       throw error;
     }
   };
@@ -154,7 +155,7 @@ const BarberProfilePage: React.FC = () => {
 
       // 1. Upload avatar if selected
       if (selectedFile) {
-        console.log('📸 Uploading selected avatar...');
+        logger.info('📸 Uploading selected avatar...', undefined, 'BarberProfilePage');
         const newAvatarUrl = await uploadAvatar();
         if (newAvatarUrl) {
           updates.data = { ...updates.data, avatar_url: newAvatarUrl };
@@ -215,7 +216,7 @@ const BarberProfilePage: React.FC = () => {
             await api.updateBarber(barberId, { name: displayName });
           }
         } catch (barberUpdateError) {
-          console.warn('Failed to update barber name:', barberUpdateError);
+          logger.warn('Failed to update barber name:', barberUpdateError, 'BarberProfilePage');
           // Don't fail the whole operation
         }
       }
@@ -235,8 +236,8 @@ const BarberProfilePage: React.FC = () => {
         toast.info("Check your new email for a confirmation link.");
       }
 
-    } catch (error: any) {
-      console.error('Failed to update profile:', error);
+    } catch (error: Error | unknown) {
+      logger.error('Failed to update profile:', error, 'BarberProfilePage');
       toast.error(error.message || "Failed to update profile. Please try again.");
     } finally {
       setIsSaving(false);

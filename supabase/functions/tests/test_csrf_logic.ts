@@ -1,5 +1,6 @@
 
 import { validateCSRF } from '../_shared/auth.ts';
+import { logger } from '../../../src/lib/logger';
 
 // Mock Request object
 class MockRequest {
@@ -18,7 +19,7 @@ const createRequest = (headersObj: Record<string, string>) => {
     } as unknown as Request;
 };
 
-console.log("🧪 Testing CSRF Validation Logic...");
+logger.info("🧪 Testing CSRF Validation Logic...", undefined, 'test_csrf_logic');
 
 // Test 1: Valid Match
 try {
@@ -27,9 +28,9 @@ try {
         'Cookie': 'csrf-token=12345; path=/'
     });
     validateCSRF(req);
-    console.log("✅ Valid Match: Passed");
+    logger.info("✅ Valid Match: Passed", undefined, 'test_csrf_logic');
 } catch (e) {
-    console.error("❌ Valid Match: Failed", e);
+    logger.error("❌ Valid Match: Failed", e, 'test_csrf_logic');
 }
 
 // Test 2: Mismatch
@@ -39,9 +40,9 @@ try {
         'Cookie': 'csrf-token=67890; path=/'
     });
     validateCSRF(req);
-    console.error("❌ Mismatch: Failed (Should have thrown)");
+    logger.error("❌ Mismatch: Failed (Should have thrown)", undefined, 'test_csrf_logic');
 } catch (e) {
-    console.log("✅ Mismatch: Passed (Threw error as expected)");
+    logger.info("✅ Mismatch: Passed (Threw error as expected)", undefined, 'test_csrf_logic');
 }
 
 // Test 3: Missing Header
@@ -50,9 +51,9 @@ try {
         'Cookie': 'csrf-token=12345'
     });
     validateCSRF(req);
-    console.error("❌ Missing Header: Failed (Should have thrown)");
+    logger.error("❌ Missing Header: Failed (Should have thrown)", undefined, 'test_csrf_logic');
 } catch (e) {
-    console.log("✅ Missing Header: Passed (Threw error as expected)");
+    logger.info("✅ Missing Header: Passed (Threw error as expected)", undefined, 'test_csrf_logic');
 }
 
 // Test 4: Missing Cookie
@@ -61,7 +62,7 @@ try {
         'X-CSRF-Token': '12345'
     });
     validateCSRF(req);
-    console.error("❌ Missing Cookie: Failed (Should have thrown)");
+    logger.error("❌ Missing Cookie: Failed (Should have thrown)", undefined, 'test_csrf_logic');
 } catch (e) {
-    console.log("✅ Missing Cookie: Passed (Threw error as expected)");
+    logger.info("✅ Missing Cookie: Passed (Threw error as expected)", undefined, 'test_csrf_logic');
 }

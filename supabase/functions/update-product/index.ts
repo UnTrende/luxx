@@ -50,7 +50,7 @@ serve(async (req) => {
       updateData.image_path = image_path;
     }
 
-    console.log('Updating data:', updateData);
+    console.log('Updating data:', updateData, 'index');
 
     const { data, error } = await supabaseClient
       .from('products')
@@ -59,11 +59,11 @@ serve(async (req) => {
       .select();
 
     if (error) {
-      console.error('Update error:', error);
+      console.error('Update error:', error, 'index');
 
       // OPTION 2: If update fails, try without imageUrl
       if (error.message.includes('imageUrl')) {
-        console.log('Retrying without imageUrl...');
+        console.log('Retrying without imageUrl...', undefined, 'index');
         delete updateData.imageUrl;
         // delete updateData.image_url;
         // delete updateData.imageurl;
@@ -96,7 +96,7 @@ serve(async (req) => {
     );
 
   } catch (error) {
-    console.error('Function error:', error);
+    console.error('Function error:', error, 'index');
     return new Response(
       JSON.stringify({ error: error.message }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

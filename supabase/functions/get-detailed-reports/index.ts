@@ -23,8 +23,7 @@ serve(async (req) => {
             const { data: bookings } = await supabaseAdmin
                 .from('bookings')
                 .select('user_id, status')
-                .neq('status', 'cancelled')
-                .neq('status', 'Canceled');
+                .neq('status', 'cancelled');
 
             const userCounts: Record<string, number> = {};
             bookings?.forEach(b => {
@@ -56,8 +55,7 @@ serve(async (req) => {
             const { data: bookings } = await supabaseAdmin
                 .from('bookings')
                 .select('date, timeslot, day_of_week')
-                .neq('status', 'cancelled')
-                .neq('status', 'Canceled');
+                .neq('status', 'cancelled');
 
             const hourCounts: Record<string, number> = {};
             const dayCounts: Record<string, number> = {};

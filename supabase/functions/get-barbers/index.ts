@@ -17,7 +17,7 @@ serve(async (req) => {
     // Authenticate user
     const user = await authenticateUser(req);
     
-    console.log("Fetching barbers from database...");
+    console.log("Fetching barbers from database...", undefined, 'index');
     
     const { data: barbers, error } = await supabaseAdmin
       .from('barbers')
@@ -28,10 +28,10 @@ serve(async (req) => {
       `)
       .eq('active', true);
       
-    console.log("Barbers fetched:", barbers?.length || 0);
+    console.log("Barbers fetched:", barbers?.length || 0, 'index');
 
     if (error) {
-      console.error("Error fetching barbers:", error);
+      console.error("Error fetching barbers:", error, 'index');
       throw error;
     }
 
@@ -43,7 +43,7 @@ serve(async (req) => {
 
     return successResponse(barbersWithServices, 200);
   } catch (error) {
-    console.error("Error in get-barbers function:", error);
+    console.error("Error in get-barbers function:", error, 'index');
     return handleError(error, "get-barbers");
   }
 });

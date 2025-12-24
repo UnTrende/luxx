@@ -21,9 +21,7 @@ export const bookingSchema = z.object({
         today.setHours(0, 0, 0, 0);
         return d >= today;
     }, { message: "Date must be in the future or today" }),
-    timeSlot: z.string().regex(/^(0[0-9]|1[0-9]|2[0-3]):[0-5][0-9]$/, { message: "Invalid time format" }),
-});
-
-export type LoginInput = z.infer<typeof loginSchema>;
+    timeSlot: z.string().regex(/^((0?[1-9]|1[0-2]):([0-5][0-9]) ?([AaPp][Mm]))$/, { message: "Invalid time format" }),
+});export type LoginInput = z.infer<typeof loginSchema>;
 export type SignupInput = z.infer<typeof signupSchema>;
 export type BookingInput = z.infer<typeof bookingSchema>;

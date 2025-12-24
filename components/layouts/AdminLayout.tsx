@@ -2,6 +2,8 @@ import React, { useEffect } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { LayoutDashboard, Users, Calendar, Settings, LogOut } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import { logger } from '../../src/lib/logger';
+import { logger } from '../../../src/lib/logger';
 
 const AdminLayout: React.FC = () => {
     const { signOut, user } = useAuth();
@@ -10,29 +12,25 @@ const AdminLayout: React.FC = () => {
 
     // Check if user is authenticated and is an admin
     useEffect(() => {
-        console.log('👑 AdminLayout: Checking user role', {
-            userExists: !!user,
-            role: user?.role,
-            currentPath: location.pathname
-        });
+        logger.info('👑 AdminLayout: Checking user role', undefined, 'LegacyConsole');
 
         if (!user) {
             // If no user, redirect to login
-            console.log('👑 AdminLayout: No user, redirecting to login');
+            logger.info('👑 AdminLayout: No user, redirecting to login', undefined, 'AdminLayout');
             navigate('/login');
         } else if (user.role !== 'admin') {
             // If user is not an admin, redirect to appropriate dashboard
-            console.log('👑 AdminLayout: Non-admin user detected, redirecting...');
+            logger.info('👑 AdminLayout: Non-admin user detected, redirecting...', undefined, 'AdminLayout');
             if (user.role === 'barber') {
-                console.log('👑 AdminLayout: Barber user, redirecting to /barber-admin');
+                logger.info('👑 AdminLayout: Barber user, redirecting to /barber-admin', undefined, 'AdminLayout');
                 navigate('/barber-admin');
             } else {
                 // For customers, redirect to their dashboard
-                console.log('👑 AdminLayout: Customer user, redirecting to /my-bookings');
+                logger.info('👑 AdminLayout: Customer user, redirecting to /my-bookings', undefined, 'AdminLayout');
                 navigate('/my-bookings');
             }
         } else {
-            console.log('👑 AdminLayout: ✅ Admin user, allowing access');
+            logger.info('👑 AdminLayout: ✅ Admin user, allowing access', undefined, 'AdminLayout');
         }
     }, [user, navigate, location.pathname]);
 

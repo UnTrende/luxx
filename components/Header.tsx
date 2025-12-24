@@ -5,6 +5,7 @@ import { Scissors, LogOut, Menu, X, Bell, Check } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNotifications } from '../contexts/NotificationContext';
 import { useSettings } from '../contexts/SettingsContext';
+import { logger } from '../src/lib/logger';
 
 const Header = () => {
   const navigate = useNavigate();
@@ -45,7 +46,7 @@ const Header = () => {
             siteLogo = JSON.parse(siteLogo);
           }
         } catch (parseError) {
-          console.warn('Logo parsing failed, using raw value:', siteLogo);
+          logger.warn('Logo parsing failed, using raw value:', siteLogo, 'Header');
         }
         setLogoUrl(siteLogo);
       } else {
@@ -67,7 +68,7 @@ const Header = () => {
       await signOut();
       navigate('/');
     } catch (error) {
-      console.error("Failed to log out:", error);
+      logger.error("Failed to log out:", error, 'Header');
     }
   };
   

@@ -3,6 +3,7 @@ import { toast } from 'react-toastify';
 import { OrderWithDetails } from '../../types';
 import { api } from '../../services/api';
 import { Search, Filter, Package, ShoppingBag, Truck, CheckCircle, XCircle, Clock } from 'lucide-react';
+import { logger } from '../../src/lib/logger';
 
 interface AdminOrdersManagerProps {
     orders: OrderWithDetails[];
@@ -22,7 +23,7 @@ export const AdminOrdersManager: React.FC<AdminOrdersManagerProps> = ({ orders, 
             await api.updateOrderStatus(orderId, newStatus);
             toast.success('Order status updated successfully');
         } catch (error) {
-            console.error('Order status update failed:', error);
+            logger.error('Order status update failed:', error, 'AdminOrdersManager');
             toast.error('Failed to update order status');
 
             // Revert on error

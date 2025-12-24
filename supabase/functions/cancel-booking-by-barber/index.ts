@@ -36,12 +36,11 @@ serve(async (req) => {
 
     const { data: updatedBooking, error } = await supabaseAdmin
       .from('bookings')
-      .update({ status: 'Canceled', cancelMessage: reason })
+      .update({ status: 'cancelled', cancelMessage: reason })
       .eq('id', bookingId)
       .eq('barber_id', barber.id) // Security check with correct column name and barber ID
       .select()
       .single();
-
     if (error) throw error;
 
     return new Response(JSON.stringify(updatedBooking), {

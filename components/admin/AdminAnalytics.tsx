@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Service, Product, Barber, UserProfile, Booking, OrderWithDetails, Attendance } from '../../types';
-import { BarChart3, TrendingUp, Users, ShoppingBag, Calendar, Clock, DollarSign, Package, CheckCircle, AlertCircle, Download, PieChart as PieIcon, Activity } from 'lucide-react';
+import { BarChart3, TrendingUp, Users, ShoppingBag, Calendar, Clock, DollarSign, Package, CheckCircle, AlertCircle, Download, PieChart as PieIcon, Activity, UserCheck } from 'lucide-react';
 import { api } from '../../services/api';
 import { AnalysisBarChart, AnalysisLineChart, AnalysisPieChart } from './AnalyticsCharts';
 import { toast } from 'react-toastify';
+import { logger } from '../../src/lib/logger';
 
 interface Stats {
     totalRevenue: number;
@@ -18,7 +19,7 @@ interface AdminAnalyticsProps {
     barbers: Barber[];
     users: UserProfile[];
     bookings: Booking[];
-    rosters: any[];
+    rosters: unknown[];
     orders: OrderWithDetails[];
     attendanceRecords: Attendance[];
     stats: Stats;
@@ -38,10 +39,16 @@ export const AdminAnalytics: React.FC<AdminAnalyticsProps> = ({
     const [analyticsData, setAnalyticsData] = React.useState<any>(null);
     const [detailedReport, setDetailedReport] = React.useState<any>(null);
     const [loading, setLoading] = React.useState(false);
+    const [transactionAnalytics, setTransactionAnalytics] = React.useState<any>(null);
+    const [selectedDate, setSelectedDate] = React.useState(new Date().toISOString().split('T')[0]);
 
     React.useEffect(() => {
         loadAnalytics();
     }, []);
+
+    React.useEffect(() => {
+        loadTransactionAnalytics();
+    }, [selectedDate]);
 
     const loadAnalytics = async () => {
         setLoading(true);
@@ -53,9 +60,22 @@ export const AdminAnalytics: React.FC<AdminAnalyticsProps> = ({
             setAnalyticsData(overview);
             setDetailedReport(retention);
         } catch (error) {
-            console.error('Analytics load failed:', error);
+            logger.error('Analytics load failed:', error, 'AdminAnalytics');
         } finally {
             setLoading(false);
+        }
+    };
+
+    const loadTransactionAnalytics = async () => {
+        try {
+            const analytics = await api.getTransactionAnalytics({
+                startDate: selectedDate,
+                endDate: selectedDate,
+                groupBy: 'customer_type'
+            });
+            setTransactionAnalytics(analytics);
+        } catch (error) {
+            logger.error('Transaction analytics load failed:', error, 'AdminAnalytics');
         }
     };
 
@@ -74,7 +94,7 @@ export const AdminAnalytics: React.FC<AdminAnalyticsProps> = ({
             window.URL.revokeObjectURL(url);
             toast.success(`${entity} exported successfully!`);
         } catch (error) {
-            console.error('Export failed:', error);
+            logger.error('Export failed:', error, 'AdminAnalytics');
             toast.error('Export failed. Please try again.');
         }
     };
@@ -287,6 +307,136 @@ export const AdminAnalytics: React.FC<AdminAnalyticsProps> = ({
                         </div>
                     ) : (
                         <div className="flex items-center justify-center h-64 text-subtle-text">Loading retention data...</div>
+                    )}
+                </div>
+            </div>
+
+            {/* Walk-in & Transaction Analytics Section */}
+            <div className="bg-glass-card rounded-3xl border border-white/10 p-8">
+                <div className="flex items-center justify-between mb-6">
+                    <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                        <UserCheck size={18} className="text-gold" />
+                        Walk-in & Transaction Analytics
+                    </h3>
+                    <input
+                        type="date"
+                        value={selectedDate}
+                        onChange={(e) => setSelectedDate(e.target.value)}
+                        className="px-4 py-2 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:border-gold transition-colors"
+                    />
+                </div>
+
+                {/* Daily Revenue Breakdown */}
+                <div className="mb-8">
+                    <h4 className="text-md font-semibold text-white mb-4">Daily Revenue Breakdown</h4>
+                    <div className="overflow-x-auto">
+                        <table className="w-full">
+                            <thead>
+                                <tr className="border-b border-white/10">
+                                    <th className="text-left py-3 px-4 text-subtle-text font-medium">Type</th>
+                                    <th className="text-right py-3 px-4 text-subtle-text font-medium">Count</th>
+                                    <th className="text-right py-3 px-4 text-subtle-text font-medium">Revenue</th>
+                                    <th className="text-right py-3 px-4 text-subtle-text font-medium">% of Total</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr className="border-b border-white/5">
+                                    <td className="py-4 px-4 text-white">Booked Customers</td>
+                                    <td className="py-4 px-4 text-right text-white font-mono">
+                                        {transactionAnalytics?.breakdown?.bookings?.count || 0}
+                                    </td>
+                                    <td className="py-4 px-4 text-right text-white font-mono font-bold">
+                                        ${(transactionAnalytics?.breakdown?.bookings?.revenue || 0).toFixed(2)}
+                                    </td>
+                                    <td className="py-4 px-4 text-right text-subtle-text">
+                                        {transactionAnalytics?.breakdown?.total?.revenue > 0
+                                            ? ((transactionAnalytics.breakdown.bookings.revenue / transactionAnalytics.breakdown.total.revenue) * 100).toFixed(1)
+                                            : 0}%
+                                    </td>
+                                </tr>
+                                <tr className="border-b border-white/5">
+                                    <td className="py-4 px-4 text-white">Walk-in Customers</td>
+                                    <td className="py-4 px-4 text-right text-white font-mono">
+                                        {transactionAnalytics?.breakdown?.walkIns?.count || 0}
+                                    </td>
+                                    <td className="py-4 px-4 text-right text-white font-mono font-bold">
+                                        ${(transactionAnalytics?.breakdown?.walkIns?.revenue || 0).toFixed(2)}
+                                    </td>
+                                    <td className="py-4 px-4 text-right text-subtle-text">
+                                        {transactionAnalytics?.breakdown?.total?.revenue > 0
+                                            ? ((transactionAnalytics.breakdown.walkIns.revenue / transactionAnalytics.breakdown.total.revenue) * 100).toFixed(1)
+                                            : 0}%
+                                    </td>
+                                </tr>
+                                <tr className="bg-gold/10 border-t-2 border-gold">
+                                    <td className="py-4 px-4 text-gold font-bold">TOTAL</td>
+                                    <td className="py-4 px-4 text-right text-gold font-mono font-bold">
+                                        {transactionAnalytics?.breakdown?.total?.count || 0}
+                                    </td>
+                                    <td className="py-4 px-4 text-right text-gold font-mono font-bold text-lg">
+                                        ${(transactionAnalytics?.breakdown?.total?.revenue || 0).toFixed(2)}
+                                    </td>
+                                    <td className="py-4 px-4 text-right text-gold font-bold">100%</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                {/* Frequent Walk-ins */}
+                <div>
+                    <h4 className="text-md font-semibold text-white mb-4 flex items-center gap-2">
+                        <TrendingUp size={16} className="text-gold" />
+                        Frequent Walk-in Customers (Top 5)
+                    </h4>
+                    {!transactionAnalytics?.frequentWalkIns || transactionAnalytics.frequentWalkIns.length === 0 ? (
+                        <div className="text-center py-8 text-subtle-text">
+                            <UserCheck size={48} className="mx-auto mb-2 opacity-30" />
+                            <p>No walk-in data available for selected date</p>
+                        </div>
+                    ) : (
+                        <>
+                            <div className="overflow-x-auto">
+                                <table className="w-full">
+                                    <thead>
+                                        <tr className="border-b border-white/10">
+                                            <th className="text-left py-3 px-4 text-subtle-text font-medium">Rank</th>
+                                            <th className="text-left py-3 px-4 text-subtle-text font-medium">Name</th>
+                                            <th className="text-left py-3 px-4 text-subtle-text font-medium">Phone</th>
+                                            <th className="text-right py-3 px-4 text-subtle-text font-medium">Total Visits</th>
+                                            <th className="text-right py-3 px-4 text-subtle-text font-medium">Total Spent</th>
+                                            <th className="text-right py-3 px-4 text-subtle-text font-medium">Last Visit</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {transactionAnalytics.frequentWalkIns.map((customer: any, index: number) => (
+                                            <tr key={index} className="border-b border-white/5 hover:bg-white/5 transition-colors">
+                                                <td className="py-4 px-4 text-gold font-bold text-lg">#{index + 1}</td>
+                                                <td className="py-4 px-4 text-white font-medium">{customer.customer_name}</td>
+                                                <td className="py-4 px-4 text-subtle-text font-mono">{customer.customer_phone}</td>
+                                                <td className="py-4 px-4 text-right text-white">
+                                                    <span className="px-3 py-1 bg-gold/20 text-gold rounded-lg font-bold">
+                                                        {customer.visit_count}
+                                                    </span>
+                                                </td>
+                                                <td className="py-4 px-4 text-right text-white font-mono font-bold">
+                                                    ${customer.total_spent.toFixed(2)}
+                                                </td>
+                                                <td className="py-4 px-4 text-right text-subtle-text text-sm">
+                                                    {new Date(customer.last_visit).toLocaleDateString()}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div className="mt-6 p-4 bg-gold/10 border border-gold/30 rounded-xl">
+                                <p className="text-gold text-sm">
+                                    <TrendingUp size={16} className="inline mr-2" />
+                                    <strong>Marketing Tip:</strong> Consider targeting these frequent walk-ins with booking incentives or loyalty programs to increase retention!
+                                </p>
+                            </div>
+                        </>
                     )}
                 </div>
             </div>

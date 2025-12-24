@@ -35,7 +35,7 @@ const AIHairstylePage: React.FC = () => {
     try {
       const resultImageUrl = await generateHairstyle(prompt, imageFile);
       setGeneratedImage(resultImageUrl);
-    } catch (err: any) {
+    } catch (err: Error | unknown) {
       setError(err.message || 'An unexpected error occurred.');
     } finally {
       setIsLoading(false);

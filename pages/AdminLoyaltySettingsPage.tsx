@@ -36,7 +36,38 @@ const AdminLoyaltySettingsPage: React.FC = () => {
     const fetchSettings = async () => {
         try {
             setLoading(true);
-            // For now, we'll use default values since we don't have a getLoyaltySettings API yet
+            // Fetch real settings from database
+            const response = await api.getLoyaltySettings();
+            
+            if (response.success && response.settings) {
+                setFormState({
+                    service_rate_silver: response.settings.service_rate_silver,
+                    service_rate_gold: response.settings.service_rate_gold,
+                    service_rate_platinum: response.settings.service_rate_platinum,
+                    silver_threshold: response.settings.silver_threshold,
+                    gold_threshold: response.settings.gold_threshold,
+                    platinum_threshold: response.settings.platinum_threshold,
+                    late_cancellation_penalty: response.settings.late_cancellation_penalty,
+                    no_show_penalty: response.settings.no_show_penalty
+                });
+                setSettings(response.settings as any);
+            } else {
+                // Fallback to default values if settings don't exist
+                setFormState({
+                    service_rate_silver: 5.00,
+                    service_rate_gold: 10.00,
+                    service_rate_platinum: 15.00,
+                    silver_threshold: 100,
+                    gold_threshold: 200,
+                    platinum_threshold: 9999,
+                    late_cancellation_penalty: 500,
+                    no_show_penalty: 1000
+                });
+            }
+        } catch (err) {
+            setError('Failed to load loyalty settings');
+            console.error(err);
+            // Use defaults on error
             setFormState({
                 service_rate_silver: 5.00,
                 service_rate_gold: 10.00,
@@ -47,9 +78,6 @@ const AdminLoyaltySettingsPage: React.FC = () => {
                 late_cancellation_penalty: 500,
                 no_show_penalty: 1000
             });
-        } catch (err) {
-            setError('Failed to load loyalty settings');
-            console.error(err);
         } finally {
             setLoading(false);
         }

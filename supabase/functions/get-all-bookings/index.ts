@@ -5,6 +5,7 @@ import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { corsHeaders } from '../_shared/cors.ts';
 import { supabaseAdmin } from '../_shared/supabaseClient.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { authenticateAdmin } from '../_shared/auth.ts';
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {

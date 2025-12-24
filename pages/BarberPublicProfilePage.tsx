@@ -4,6 +4,7 @@ import { Barber } from '../types';
 import { Star, Scissors, Loader } from 'lucide-react';
 import { api } from '../services/api';
 import { resolveBarberPhoto } from '../services/imageResolver';
+import { logger } from '../src/lib/logger';
 
 const BarberPublicProfilePage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -18,7 +19,7 @@ const BarberPublicProfilePage: React.FC = () => {
         const b = await api.getBarberById(id);
         setBarber(b as any);
       } catch (e) {
-        console.error('Failed to load barber profile', e);
+        logger.error('Failed to load barber profile', e, 'BarberPublicProfilePage');
         setBarber(null);
       } finally {
         setLoading(false);
@@ -52,7 +53,7 @@ const BarberPublicProfilePage: React.FC = () => {
             </div>
             <p className="text-subtle-text">{Array.isArray(barber.specialties) ? barber.specialties.join(' • ') : 'Master Barber'}</p>
             <div className="flex flex-wrap gap-2">
-              {(barber.services || []).map((s: any) => (
+              {(barber.services || []).map((s: unknown) => (
                 <span key={s.serviceId || s.id} className="px-3 py-1 text-xs border border-white/10 rounded-full text-subtle-text flex items-center gap-1">
                   <Scissors size={12} /> {s.name || s.serviceId}
                 </span>

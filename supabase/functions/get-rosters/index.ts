@@ -50,11 +50,11 @@ serve(async (req) => {
     const { data: rosters, error } = await query;
 
     if (error) {
-      console.error("Error fetching rosters:", error);
+      console.error("Error fetching rosters:", error, 'index');
       throw error;
     }
 
-    console.log("Rosters fetched:", rosters?.length || 0);
+    console.log("Rosters fetched:", rosters?.length || 0, 'index');
 
     return new Response(
       JSON.stringify({
@@ -69,7 +69,7 @@ serve(async (req) => {
     );
 
   } catch (error) {
-    console.error("Error in get-rosters function:", error);
+    console.error("Error in get-rosters function:", error, 'index');
     return new Response(
       JSON.stringify({
         success: false,

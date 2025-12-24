@@ -5,15 +5,18 @@ import { api } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import GoldConfetti from './GoldConfetti';
 import { bookingSchema } from '../utils/validation';
+import { logger } from '../src/lib/logger';
 
 interface ConfirmationStepProps {
-  barber: any;
+  barber: unknown;
   selectedServices: string[];
   selectedDate: string;
   selectedTime: string;
-  services: any[];
+  services: unknown[];
   onBack: () => void;
   onConfirm: () => void;
+  isRewardBooking?: boolean;
+  pointsToRedeem?: number;
 }
 
 const ConfirmationStep: React.FC<ConfirmationStepProps> = ({
@@ -23,7 +26,9 @@ const ConfirmationStep: React.FC<ConfirmationStepProps> = ({
   selectedTime,
   services,
   onBack,
-  onConfirm
+  onConfirm,
+  isRewardBooking = false,
+  pointsToRedeem = 0
 }) => {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -42,7 +47,7 @@ const ConfirmationStep: React.FC<ConfirmationStepProps> = ({
         );
         setServiceDetails(selectedDetails);
       } catch (error) {
-        console.error('Failed to load service details:', error);
+        logger.error('Failed to load service details:', error, 'ConfirmationStep');
         setServiceDetails([]);
       }
     };
@@ -78,10 +83,14 @@ const ConfirmationStep: React.FC<ConfirmationStepProps> = ({
         serviceIds: selectedServices,
         date: selectedDate,
         timeSlot: selectedTime,
-        totalPrice: totalPrice,
+        totalPrice: isRewardBooking ? 0 : totalPrice, // Reward bookings are free
         userName: user.name || user.email || 'Customer',
-        userId: user.id
+        userId: user.id,
+        isRewardBooking: isRewardBooking,
+        pointsRedeemed: isRewardBooking ? pointsToRedeem : 0
       };
+
+      logger.info('📋 ConfirmationStep: Booking details to send:', undefined, 'LegacyConsole');
 
       // Validate Booking Data
       const validation = bookingSchema.safeParse({
@@ -92,9 +101,10 @@ const ConfirmationStep: React.FC<ConfirmationStepProps> = ({
       });
 
       if (!validation.success) {
-        throw new Error(validation.error.errors[0].message);
+        // Fix: Use issues instead of errors for Zod validation
+        const firstIssue = validation.error.issues[0];
+        throw new Error(firstIssue?.message || 'Invalid booking data');
       }
-
       await api.createBooking(bookingDetails);
 
       // Success state
@@ -105,8 +115,8 @@ const ConfirmationStep: React.FC<ConfirmationStepProps> = ({
         onConfirm();
       }, 3000);
 
-    } catch (error: any) {
-      console.error('Booking failed:', error);
+    } catch (error: Error | unknown) {
+      logger.error('Booking failed:', error, 'ConfirmationStep');
 
       // Provide specific error messages
       let errorMessage = 'Failed to create booking. Please try again.';
@@ -219,8 +229,22 @@ const ConfirmationStep: React.FC<ConfirmationStepProps> = ({
 
           {/* Total Price - Massive */}
           <div className="border-t-2 border-midnight pt-6 text-center">
-            <p className="text-xs text-midnight/60 uppercase tracking-widest mb-2">Total Amount</p>
-            <p className="text-5xl font-serif font-bold text-midnight">${totalPrice}</p>
+            {isRewardBooking ? (
+              <>
+                <div className="inline-flex items-center gap-2 bg-gold/10 border border-gold px-4 py-2 rounded-full mb-3">
+                  <span className="text-2xl">🎁</span>
+                  <span className="text-xs font-bold uppercase tracking-widest text-gold">Reward Booking</span>
+                </div>
+                <p className="text-xs text-midnight/60 mb-2">Redeeming {pointsToRedeem} Points</p>
+                <p className="text-5xl font-serif font-bold text-gold">FREE</p>
+                <p className="text-xs text-midnight/40 line-through mt-2">${totalPrice}</p>
+              </>
+            ) : (
+              <>
+                <p className="text-xs text-midnight/60 uppercase tracking-widest mb-2">Total Amount</p>
+                <p className="text-5xl font-serif font-bold text-midnight">${totalPrice}</p>
+              </>
+            )}
           </div>
         </div>
 
@@ -254,6 +278,10 @@ const ConfirmationStep: React.FC<ConfirmationStepProps> = ({
             <>
               <div className="w-4 h-4 border-2 border-midnight border-t-transparent rounded-full animate-spin"></div>
               Processing...
+            </>
+          ) : isRewardBooking ? (
+            <>
+              🎁 Confirm Reward
             </>
           ) : (
             'Confirm & Pay'

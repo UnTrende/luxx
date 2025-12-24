@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, Save, Copy, Trash2, Plus, Download, Upload, RotateCcw, Clock } from 'lucide-react';
 import { api } from '../services/api';
+import { logger } from '../src/lib/logger';
 
 interface Barber {
   id: string;
@@ -21,7 +22,7 @@ interface SimpleExcelRosterProps {
   barbers: Barber[];
   onSave?: () => void;
   editMode?: boolean;
-  existingRoster?: any;
+  existingRoster?: unknown;
 }
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
@@ -42,7 +43,7 @@ export default function SimpleExcelRoster({ barbers, onSave, editMode = false, e
 
       // Transform shifts to schedule format
       if (existingRoster.shifts && existingRoster.shifts.length > 0) {
-        const transformedSchedule: RosterCell[] = existingRoster.shifts.map((shift: any) => {
+        const transformedSchedule: RosterCell[] = existingRoster.shifts.map((shift: unknown) => {
           // Calculate day index from date
           const shiftDate = new Date(shift.date);
           const weekStart = new Date(existingRoster.week_start_date);
@@ -103,7 +104,7 @@ export default function SimpleExcelRoster({ barbers, onSave, editMode = false, e
     };
   };
 
-  const updateCell = (barberId: string, dayIndex: number, field: keyof RosterCell, value: any) => {
+  const updateCell = (barberId: string, dayIndex: number, field: keyof RosterCell, value: Event) => {
     setSchedule(prev => {
       const newSchedule = [...prev];
       const cellIndex = newSchedule.findIndex(cell =>
@@ -143,7 +144,7 @@ export default function SimpleExcelRoster({ barbers, onSave, editMode = false, e
     }
   };
 
-  const applyToSelected = (field: keyof RosterCell, value: any) => {
+  const applyToSelected = (field: keyof RosterCell, value: Event) => {
     selectedCells.forEach(cellKey => {
       const [barberId, dayIndex] = cellKey.split('-');
       updateCell(barberId, parseInt(dayIndex), field, value);
@@ -190,7 +191,7 @@ export default function SimpleExcelRoster({ barbers, onSave, editMode = false, e
           weekEnd.toISOString().split('T')[0],
           days
         );
-        console.info('Roster updated successfully! ✅');
+        logger.info('Roster updated successfully! ✅', undefined, 'SimpleExcelRoster');
       } else {
         await api.createRoster(
           rosterName,
@@ -198,13 +199,13 @@ export default function SimpleExcelRoster({ barbers, onSave, editMode = false, e
           weekEnd.toISOString().split('T')[0],
           days
         );
-        console.info('Roster published successfully! ✅');
+        logger.info('Roster published successfully! ✅', undefined, 'SimpleExcelRoster');
       }
 
       if (onSave) onSave();
     } catch (error) {
-      console.error('Failed to save roster:', error);
-      console.error(`Failed to ${editMode ? 'update' : 'save'} roster. Please try again.`);
+      logger.error('Failed to save roster:', error, 'SimpleExcelRoster');
+      logger.error(`Failed to ${editMode ? 'update' : 'save'} roster. Please try again.`, undefined, 'SimpleExcelRoster');
     } finally {
       setSaving(false);
     }

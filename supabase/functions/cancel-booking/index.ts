@@ -21,12 +21,11 @@ serve(async (req) => {
     // Update the booking status if it belongs to the user
     const { data: updatedBooking, error: updateError } = await supabaseAdmin
       .from('bookings')
-      .update({ status: 'Canceled' })
+      .update({ status: 'cancelled' }) // Use correct status value per constraint
       .eq('id', bookingId)
       .eq('user_id', user.id) // Security check
       .select()
       .single();
-
     if (updateError) throw updateError;
     
     // Create notification for barber
@@ -34,8 +33,8 @@ serve(async (req) => {
         .from('notifications')
         .insert({
             recipient_id: updatedBooking.barber_id,
-            type: 'BOOKING_CANCELED_BY_CUSTOMER',
-            message: `Booking with ${updatedBooking.username} for ${updatedBooking.date} at ${updatedBooking.timeslot} was canceled.`,
+            type: 'BOOKING_CANCELLED_BY_CUSTOMER',
+            message: `Booking with ${updatedBooking.username} for ${updatedBooking.date} at ${updatedBooking.timeslot} was cancelled.`,
             payload: { bookingId: updatedBooking.id }
         });
 

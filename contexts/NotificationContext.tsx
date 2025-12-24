@@ -3,6 +3,7 @@ import { api } from '../services/api';
 import { AppNotification } from '../types';
 import { useAuth } from './AuthContext';
 import { RealtimeChannel } from '@supabase/supabase-js';
+import { logger } from '../src/lib/logger';
 
 interface NotificationContextType {
   notifications: AppNotification[];
@@ -35,7 +36,7 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
         const initialNotifications = await api.notifications.getNotifications();
         setNotifications(initialNotifications);
       } catch (error) {
-        console.error("Failed to fetch initial notifications:", error);
+        logger.error("Failed to fetch initial notifications", error, 'NotificationContext');
       } finally {
         setIsLoading(false);
       }
@@ -61,7 +62,7 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
     try {
         await api.notifications.markNotificationAsRead(notificationId);
     } catch (error) {
-        console.error("Failed to mark notification as read:", error);
+        logger.error("Failed to mark notification as read", error, 'NotificationContext');
         // Revert UI change on failure
         setNotifications(originalNotifications);
     }

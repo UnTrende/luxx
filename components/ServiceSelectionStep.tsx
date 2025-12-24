@@ -3,6 +3,7 @@ import { Scissors } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { api } from '../services/api';
 import { Service } from '../types';
+import { logger } from '../src/lib/logger';
 
 interface ServiceSelectionStepProps {
   selectedServices: string[];
@@ -28,10 +29,10 @@ const ServiceSelectionStep: React.FC<ServiceSelectionStepProps> = ({
     try {
       setLoading(true);
       const allServices = await api.getServices();
-      console.log('📋 Loaded all services:', allServices);
+      logger.info('📋 Loaded all services:', allServices, 'ServiceSelectionStep');
       setServices(allServices);
     } catch (error) {
-      console.error('Failed to load all services:', error);
+      logger.error('Failed to load all services:', error, 'ServiceSelectionStep');
       toast.error('Failed to load services. Please try again later.');
       setServices([]);
     } finally {

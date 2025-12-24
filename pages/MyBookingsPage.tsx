@@ -5,6 +5,7 @@ import { BookingWithDetails } from '../types';
 import { Star, X, Send, Trash2, CalendarX2, User, Loader, Scissors, Calendar, Clock, MapPin, ChevronRight } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { api } from '../services/api';
+import { logger } from '../src/lib/logger';
 
 const MyBookingsPage: React.FC = () => {
     const navigate = useNavigate();
@@ -38,7 +39,7 @@ const MyBookingsPage: React.FC = () => {
                     const bookings = await api.getMyBookings();
                     setMyBookings(bookings);
                 } catch (err) {
-                    console.error('Error fetching bookings', err);
+                    logger.error('Error fetching bookings', err, 'MyBookingsPage');
                     setError('Failed to load your bookings. Please try again.');
                 } finally {
                     setIsLoadingBookings(false);
@@ -99,7 +100,7 @@ const MyBookingsPage: React.FC = () => {
             try {
                 await api.cancelBooking(bookingId);
                 setMyBookings(prev => prev.map(b =>
-                    b.id === bookingId ? { ...b, status: 'Canceled' } : b
+                    b.id === bookingId ? { ...b, status: 'cancelled' } : b
                 ));
             } catch (error) {
                 toast.error('Failed to cancel booking. Please try again.');
@@ -112,7 +113,7 @@ const MyBookingsPage: React.FC = () => {
         switch (status) {
             case 'Completed': return 'bg-green-500/10 text-green-400 border-green-500/20';
             case 'Confirmed': return 'bg-gold/10 text-gold border-gold/20';
-            case 'Canceled': return 'bg-red-500/10 text-red-400 border-red-500/20';
+            case 'cancelled': return 'bg-red-500/10 text-red-400 border-red-500/20';
             default: return 'bg-white/5 text-subtle-text border-white/10';
         }
     };

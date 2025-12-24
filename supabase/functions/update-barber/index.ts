@@ -35,9 +35,9 @@ serve(async (req) => {
 
     // Parse the request body - ensure it's only plain data
     const body = await req.json();
-    console.log('Received barber data:', body);
+    console.log('Received barber data:', body, 'index');
 
-    const { id, name, email, phone, services, specialties, working_hours, photo_path, photo, is_active } = body;
+    const { id, name, email, phone, services, specialties, working_hours, photo_path, photo } = body;
 
     // Validate required fields
     if (!id) {
@@ -98,9 +98,8 @@ serve(async (req) => {
     if (working_hours !== undefined) updateData.working_hours = Array.isArray(working_hours) ? working_hours : [];
     if (photo_path !== undefined) updateData.photo_path = photo_path?.toString() || null;
     if (photo !== undefined) updateData.photo = photo?.toString() || null; // Allow photo updates from profile page
-    if (is_active !== undefined) updateData.is_active = Boolean(is_active);
 
-    console.log('Update data prepared:', updateData);
+    console.log('Update data prepared:', updateData, 'index');
 
     // Update the barber
     const { data, error } = await supabaseClient
@@ -110,7 +109,7 @@ serve(async (req) => {
       .select();
 
     if (error) {
-      console.error('Database error:', error);
+      console.error('Database error:', error, 'index');
       throw error;
     }
 
@@ -124,7 +123,7 @@ serve(async (req) => {
     );
 
   } catch (error) {
-    console.error('Error in update-barber function:', error);
+    console.error('Error in update-barber function:', error, 'index');
     return new Response(
       JSON.stringify({ error: error.message }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

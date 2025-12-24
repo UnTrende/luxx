@@ -6,6 +6,7 @@ import { toast } from 'react-toastify';
 import { useAuth } from '../contexts/AuthContext';
 import { api } from '../services/api';
 import { resolveProductImage } from '../services/imageResolver';
+import { logger } from '../src/lib/logger';
 
 const ProductOrderPage: React.FC = () => {
     const { id } = useParams<{ id: string }>();
@@ -29,7 +30,7 @@ const ProductOrderPage: React.FC = () => {
                     setQuantity(0);
                 }
             } catch (error) {
-                console.error("Failed to fetch product:", error);
+                logger.error("Failed to fetch product:", error, 'ProductOrderPage');
                 setProduct(null);
             } finally {
                 setIsLoading(false);
@@ -58,8 +59,8 @@ const ProductOrderPage: React.FC = () => {
         try {
             const newOrder = await api.createProductOrder({ productId: product.id, quantity });
             navigate(`/order-confirmed/${newOrder.id}`);
-        } catch (error: any) {
-            console.error("Failed to create order:", error);
+        } catch (error: Error | unknown) {
+            logger.error("Failed to create order:", error, 'ProductOrderPage');
             // Show the specific error message from the API
             const errorMessage = error.message || error.toString() || "Could not place order. Please try again.";
             toast.error(errorMessage);

@@ -28,12 +28,12 @@ serve(async (req) => {
       ...service,
       price: Number(service.price) || 0,
       duration: Number(service.duration) || 0,
-      loyalty_points: Number(service.loyalty_points) || 0
+      loyalty_points: Number(service.loyalty_points_bronze || service.loyalty_points_silver || service.loyalty_points_gold || 0) || 0
     }));
 
     return successResponse(normalizedServices, 200);
   } catch (error) {
-    console.error('Error fetching services:', error);
+    console.error('Error fetching services:', error, 'index');
     return handleError(error, 'get-services');
   }
 });

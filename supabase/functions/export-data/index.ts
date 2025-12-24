@@ -2,8 +2,13 @@ import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { corsHeaders } from '../_shared/cors.ts';
 import { supabaseAdmin } from '../_shared/supabaseClient.ts';
 import { authenticateAdmin } from '../_shared/auth.ts';
+import { withSafetyNet, SafetyContext } from '../_shared/safety-core.ts';
+import { SafeValidator } from '../_shared/validation-suite.ts';
+import { RateLimiter } from '../_shared/rate-limiter.ts';
+import { withSecurityHeaders } from '../_shared/security-headers.ts';
+import { MetricsCollector } from '../_shared/metrics.ts';
 
-const jsonToCsv = (items: any[]) => {
+const jsonToCsv = (items: unknown[]) => {
     if (!items || items.length === 0) return '';
     const replacer = (_key: string, value: any) => value === null ? '' : value;
     const header = Object.keys(items[0]);
@@ -14,20 +19,50 @@ const jsonToCsv = (items: any[]) => {
     return csv;
 };
 
-serve(async (req) => {
-    if (req.method === 'OPTIONS') {
-        return new Response('ok', { headers: corsHeaders });
-    }
+// Create instances of our new utilities
+const validator = new SafeValidator();
+const rateLimiter = new RateLimiter();
+const metrics = MetricsCollector.getInstance();
 
+const handleExportRequest = async (req: Request, context: SafetyContext) => {
+    const startTime = Date.now();
+    
     try {
+        // Rate limiting check
+        const userId = context.userId || 'anonymous';
+        const rateCheck = await rateLimiter.check(userId, 'user', context);
+        if (!rateCheck.allowed) {
+            return new Response(
+                JSON.stringify({ error: 'Rate limit exceeded' }), 
+                { 
+                    status: 429, 
+                    headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+                }
+            );
+        }
+        
         await authenticateAdmin(req);
-        const { entity, format } = await req.json();
+        const requestData = await req.json();
+        
+        // Validate request data
+        const validation = await validator.validate(requestData, 'export-request', context);
+        if (!validation.success && context.config.enableValidation) {
+            return new Response(
+                JSON.stringify({ error: 'Invalid request data', details: validation.errors }), 
+                { 
+                    status: 400, 
+                    headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+                }
+            );
+        }
+        
+        const { entity, format } = requestData;
 
         if (format !== 'csv') {
             throw new Error('Only CSV export is currently supported by the backend.');
         }
 
-        let data: any[] = [];
+        let data: Record<string, unknown>[] = [];
         let filename = 'export.csv';
 
         if (entity === 'bookings') {
@@ -82,11 +117,19 @@ serve(async (req) => {
                 }
                 
                 // Return enhanced booking with names instead of just IDs
+                // COMPLIANCE: Removing personal identifying information per privacy requirements
                 return {
-                    ...booking,
-                    user_name: userName,
-                    barber_name: barberName,
-                    service_names: serviceNames.join('; ')
+                    id: booking.id,
+                    user_id: booking.user_id,
+                    barber_id: booking.barber_id,
+                    service_ids: booking.service_ids,
+                    appointment_date: booking.appointment_date,
+                    time_slot: booking.time_slot,
+                    status: booking.status,
+                    notes: booking.notes,
+                    created_at: booking.created_at,
+                    updated_at: booking.updated_at
+                    // REMOVED: user_name, barber_name, service_names (personal identifying information)
                 };
             }));
             
@@ -134,10 +177,17 @@ serve(async (req) => {
                 }
                 
                 // Return enhanced order with names instead of just IDs
+                // COMPLIANCE: Removing personal identifying information per privacy requirements
                 return {
-                    ...order,
-                    user_name: userName,
-                    product_name: productName
+                    id: order.id,
+                    user_id: order.user_id,
+                    product_id: order.product_id,
+                    quantity: order.quantity,
+                    total_price: order.total_price,
+                    status: order.status,
+                    created_at: order.created_at,
+                    updated_at: order.updated_at
+                    // REMOVED: user_name, product_name (personal identifying information)
                 };
             }));
             
@@ -153,7 +203,10 @@ serve(async (req) => {
 
         const csvContent = jsonToCsv(data);
 
-        return new Response(JSON.stringify({
+        // Record successful request metric
+        await metrics.recordRequest('export-data', Date.now() - startTime, 200, userId);
+
+        const response = new Response(JSON.stringify({
             csv: csvContent,
             filename
         }), {
@@ -161,10 +214,19 @@ serve(async (req) => {
             status: 200,
         });
 
+        return withSecurityHeaders(response);
+
     } catch (error) {
-        return new Response(JSON.stringify({ error: error.message }), {
+        // Record error metric
+        await metrics.recordRequest('export-data', Date.now() - startTime, 500, context.userId);
+        
+        const response = new Response(JSON.stringify({ error: error.message }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
             status: 400,
         });
+        
+        return withSecurityHeaders(response);
     }
-});
+};
+
+serve(withSafetyNet(handleExportRequest));

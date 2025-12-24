@@ -15,7 +15,7 @@ serve(async (_req) => {
     // Authenticate admin user
     const admin = await authenticateAdmin(_req);
     
-    console.log('Starting database connection test...');
+    console.log('Starting database connection test...', undefined, 'index');
     
     // Test 1: Check database connection by querying pg_tables
     const { data: tables, error: tablesError } = await supabaseAdmin
@@ -25,7 +25,7 @@ serve(async (_req) => {
       .limit(1);
 
     if (tablesError) {
-      console.error('Tables query error:', tablesError);
+      console.error('Tables query error:', tablesError, 'index');
       return new Response(JSON.stringify({ 
         error: 'Database connection test failed', 
         details: tablesError.message,
@@ -37,11 +37,11 @@ serve(async (_req) => {
     }
 
     const tableExists = tables && tables.length > 0;
-    console.log('Table exists:', tableExists);
+    console.log('Table exists:', tableExists, 'index');
 
     // Test 2: If table exists, check its structure
     if (tableExists) {
-      console.log('Checking table structure...');
+      console.log('Checking table structure...', undefined, 'index');
       
       // Query information schema to get column details
       const { data: columns, error: columnsError } = await supabaseAdmin
@@ -51,7 +51,7 @@ serve(async (_req) => {
         .order('ordinal_position');
 
       if (columnsError) {
-        console.error('Columns query error:', columnsError);
+        console.error('Columns query error:', columnsError, 'index');
         return new Response(JSON.stringify({ 
           error: 'Column structure query failed', 
           details: columnsError.message,
@@ -62,14 +62,14 @@ serve(async (_req) => {
         });
       }
 
-      console.log('Columns found:', JSON.stringify(columns, null, 2));
+      console.log('Columns found:', JSON.stringify(columns, null, 2, 'index'));
       
       // Check if imageUrl column exists
       const imageUrlColumn = columns.find(col => col.column_name === 'imageUrl');
-      console.log('imageUrl column:', imageUrlColumn);
+      console.log('imageUrl column:', imageUrlColumn, 'index');
 
       // Test 3: Try to insert a test product
-      console.log('Attempting to insert test product...');
+      console.log('Attempting to insert test product...', undefined, 'index');
       const testProduct = {
         name: "DB Test Product",
         description: "Test description",
@@ -86,7 +86,7 @@ serve(async (_req) => {
         .single();
 
       if (insertError) {
-        console.error('Insert error:', insertError);
+        console.error('Insert error:', insertError, 'index');
         return new Response(JSON.stringify({ 
           error: 'Product insertion failed', 
           details: insertError.message,
@@ -100,12 +100,12 @@ serve(async (_req) => {
         });
       }
 
-      console.log('Insert successful:', JSON.stringify(insertData, null, 2));
+      console.log('Insert successful:', JSON.stringify(insertData, null, 2, 'index'));
 
       // Clean up - delete the test product
       if (insertData && insertData.id) {
         await supabaseAdmin.from('products').delete().eq('id', insertData.id);
-        console.log('Test product cleaned up');
+        console.log('Test product cleaned up', undefined, 'index');
       }
 
       return new Response(JSON.stringify({ 
@@ -120,7 +120,7 @@ serve(async (_req) => {
       });
     } else {
       // Table doesn't exist, try to create it
-      console.log('Products table does not exist, attempting to create it...');
+      console.log('Products table does not exist, attempting to create it...', undefined, 'index');
       
       // Since we can't run DDL in Edge Functions, we'll return an error
       return new Response(JSON.stringify({ 
@@ -132,7 +132,7 @@ serve(async (_req) => {
       });
     }
   } catch (error) {
-    console.error('Function error:', error);
+    console.error('Function error:', error, 'index');
     return new Response(JSON.stringify({ error: error.message }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 400,

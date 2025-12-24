@@ -4,11 +4,19 @@ import { toast } from 'react-toastify';
 import { Barber } from '../../types';
 import { api } from '../../services/api';
 import { ImageUpload } from '../../components/ImageUpload';
-import { Plus, Edit2, Trash2, Mail, Scissors, User } from 'lucide-react';
+import { Plus, Edit2, Trash2, Mail, Scissors, User, Award, X } from 'lucide-react';
+import { logger } from '../../src/lib/logger';
 
 interface AdminBarbersManagerProps {
     barbers: Barber[];
     setBarbers: React.Dispatch<React.SetStateAction<Barber[]>>;
+    showContextBanner?: boolean;
+    barberContext?: {
+        topBarberName: string;
+        topBarberBookings: number;
+        avgBookingsPerBarber: number;
+        utilizationRate: number;
+    };
 }
 
 // Local interface for form handling with password field for new barbers
@@ -17,11 +25,12 @@ interface BarberFormData extends Barber {
     bio?: string; // Bio field for barber description
 }
 
-export const AdminBarbersManager: React.FC<AdminBarbersManagerProps> = ({ barbers, setBarbers }) => {
+export const AdminBarbersManager: React.FC<AdminBarbersManagerProps> = ({ barbers, setBarbers, showContextBanner, barberContext }) => {
     const [isBarberModalOpen, setIsBarberModalOpen] = useState(false);
     const [currentBarber, setCurrentBarber] = useState<Barber | null>(null);
     const [barberPhotoUrl, setBarberPhotoUrl] = useState('');
     const [barberPhotoPath, setBarberPhotoPath] = useState('');
+    const [bannerVisible, setBannerVisible] = useState(showContextBanner);
 
     const barberForm = useForm<BarberFormData>();
 
@@ -62,7 +71,7 @@ export const AdminBarbersManager: React.FC<AdminBarbersManagerProps> = ({ barber
             setBarberPhotoPath('');
             setBarberPhotoUrl('');
         } catch (error) {
-            console.error('Barber operation failed:', error);
+            logger.error('Barber operation failed:', error, 'AdminBarbersManager');
             toast.error('Failed to save barber');
         }
     };
@@ -75,7 +84,7 @@ export const AdminBarbersManager: React.FC<AdminBarbersManagerProps> = ({ barber
             setBarbers(prev => prev.filter(b => b.id !== id));
             toast.success('Barber deleted successfully');
         } catch (error) {
-            console.error('Barber deletion failed:', error);
+            logger.error('Barber deletion failed:', error, 'AdminBarbersManager');
             toast.error('Failed to delete barber');
         }
     };
@@ -97,6 +106,35 @@ export const AdminBarbersManager: React.FC<AdminBarbersManagerProps> = ({ barber
 
     return (
         <div>
+            {/* Context Banner - Shows barber performance from dashboard */}
+            {bannerVisible && barberContext && (
+                <div className="bg-gold/10 border-l-4 border-gold p-5 rounded-xl relative animate-slide-down mb-6">
+                    <div className="flex items-start justify-between">
+                        <div className="flex items-start gap-4">
+                            <div className="p-2 rounded-lg bg-gold/20">
+                                <Award className="text-gold" size={24} />
+                            </div>
+                            <div>
+                                <h3 className="text-white font-bold text-lg mb-1">💈 Barber Performance</h3>
+                                <p className="text-yellow-200 text-sm">
+                                    <span className="font-bold">{barberContext.topBarberName}</span> is your top performer with <span className="font-bold">{barberContext.topBarberBookings} completed bookings</span>.
+                                </p>
+                                <p className="text-yellow-200/70 text-xs mt-1">
+                                    Average: {barberContext.avgBookingsPerBarber} bookings/barber • Utilization: <span className="font-bold">{barberContext.utilizationRate}%</span>
+                                    {barberContext.utilizationRate > 70 ? ' - Excellent! 🔥' : ' - Consider optimizing scheduling.'}
+                                </p>
+                            </div>
+                        </div>
+                        <button
+                            onClick={() => setBannerVisible(false)}
+                            className="text-gold hover:text-white transition-colors"
+                        >
+                            <X size={20} />
+                        </button>
+                    </div>
+                </div>
+            )}
+
             <div className="flex justify-between items-center mb-8">
                 <div>
                     <h2 className="text-3xl font-serif font-bold text-white">Staff Management</h2>

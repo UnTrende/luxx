@@ -92,7 +92,7 @@ serve(async (req) => {
           .eq('id', entityId);
 
         if (updateError) {
-          console.warn(`Failed to update ${tableName} with URL, retrying with just path...`, updateError);
+          console.warn(`Failed to update ${tableName} with URL, retrying with just path...`, updateError, 'index');
           // Fallback: try updating just the path (if URL column doesn't exist)
           const fallbackData = { ...updateData };
           delete fallbackData.image_url;
@@ -117,7 +117,7 @@ serve(async (req) => {
     );
 
   } catch (error) {
-    console.error('Upload error:', error);
+    console.error('Upload error:', error, 'index');
     return new Response(
       JSON.stringify({ error: error.message }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

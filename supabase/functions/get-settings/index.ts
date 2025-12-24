@@ -28,19 +28,25 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // Get all settings
+    // Get settings from the correct table (settings table with columns)
     const { data: settings, error } = await supabaseClient
-      .from('site_settings')
-      .select('*');
+      .from('settings')
+      .select('*')
+      .eq('id', 'site_settings')
+      .single();
+
+    console.log('⚙️ Raw settings from database:', settings, 'index');
+    console.log('⚙️ Database error (if any):', error, 'index');
 
     // If there's an error (likely table doesn't exist), return default settings
     if (error) {
-      console.warn('Site settings table not found, returning default settings:', error.message);
+      console.warn('Site settings not found, returning default settings:', error.message, 'index');
       
       const defaultSettings = {
         shop_name: 'LuxeCut Barber Shop',
-        allow_signups: 'true',
-        site_logo: 'https://picsum.photos/seed/logo/300/300'
+        allow_signups: true,
+        site_logo: 'https://picsum.photos/seed/logo/300/300',
+        hero_images: []
       };
       
       return new Response(
@@ -52,13 +58,15 @@ serve(async (req) => {
       );
     }
 
-    // Transform to simple key-value object
-    const settingsObj: any = {};
-    settings?.forEach(setting => {
-      settingsObj[setting.key] = setting.value;
-    });
+    // Transform to match expected format
+    const settingsObj: any = {
+      shop_name: settings.site_name,
+      allow_signups: settings.allow_signups,
+      site_logo: settings.site_logo,
+      hero_images: settings.hero_images || []
+    };
 
-    console.log('⚙️ Settings loaded:', Object.keys(settingsObj));
+    console.log('⚙️ Settings loaded:', settingsObj, 'index');
 
     // Return wrapped response to match expected format
     return new Response(
@@ -70,13 +78,14 @@ serve(async (req) => {
     );
 
   } catch (error) {
-    console.error('Function error:', error);
+    console.error('Function error:', error, 'index');
     
     // Even in case of unexpected errors, return default settings to prevent app crash
     const defaultSettings = {
       shop_name: 'LuxeCut Barber Shop',
-      allow_signups: 'true',
-      site_logo: 'https://picsum.photos/seed/logo/300/300'
+      allow_signups: true,
+      site_logo: 'https://picsum.photos/seed/logo/300/300',
+      hero_images: []
     };
     
     return new Response(

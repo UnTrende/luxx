@@ -5,6 +5,7 @@
 // ============================================================================
 
 import { corsHeaders } from './cors.ts';
+import { logger } from '../../../src/lib/logger';
 
 /**
  * Create a successful JSON response with proper CORS headers
@@ -46,9 +47,9 @@ export function handleError(error: Error | unknown, context?: string): Response 
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
 
     if (context) {
-        console.error(`[${context}] Error:`, errorMessage);
+        logger.error(`[${context}] Error:`, errorMessage, 'response');
     } else {
-        console.error('Error:', errorMessage);
+        logger.error('Error:', errorMessage, 'response');
     }
 
     // Handle specific error types

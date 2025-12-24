@@ -4,6 +4,7 @@ import { Home, Calendar, User, ShoppingBag } from 'lucide-react';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { useAuth } from '../../contexts/AuthContext';
+import { logger } from '../../src/lib/logger';
 
 const CustomerLayout: React.FC = () => {
     const location = useLocation();
@@ -12,36 +13,34 @@ const CustomerLayout: React.FC = () => {
 
     // Redirect admin and barber users to their appropriate dashboards
     useEffect(() => {
-        console.log('🏪 CustomerLayout: Checking user role', { 
-            userExists: !!user, 
-            role: user?.role, 
-            isLoading,
-            currentPath: location.pathname 
-        });
+        logger.debug('CustomerLayout checking user role', {
+      userRole: user?.role,
+      pathname: location.pathname
+    }, 'CustomerLayout');
 
         // Don't redirect while loading
         if (isLoading) {
-            console.log('🏪 CustomerLayout: Still loading, waiting...');
+            logger.info('🏪 CustomerLayout: Still loading, waiting...', undefined, 'CustomerLayout');
             return;
         }
 
         // Redirect admins and barbers to their dashboards
         if (user) {
             if (user.role === 'admin') {
-                console.log('🏪 CustomerLayout: ⚠️ Admin user detected, redirecting to /admin');
+                logger.info('🏪 CustomerLayout: ⚠️ Admin user detected, redirecting to /admin', undefined, 'CustomerLayout');
                 navigate('/admin', { replace: true });
                 return;
             }
             
             if (user.role === 'barber') {
-                console.log('🏪 CustomerLayout: ⚠️ Barber user detected, redirecting to /barber-admin');
+                logger.info('🏪 CustomerLayout: ⚠️ Barber user detected, redirecting to /barber-admin', undefined, 'CustomerLayout');
                 navigate('/barber-admin', { replace: true });
                 return;
             }
             
-            console.log('🏪 CustomerLayout: ✅ Customer user, allowing access');
+            logger.info('🏪 CustomerLayout: ✅ Customer user, allowing access', undefined, 'CustomerLayout');
         } else {
-            console.log('🏪 CustomerLayout: No user logged in, public access allowed');
+            logger.info('🏪 CustomerLayout: No user logged in, public access allowed', undefined, 'CustomerLayout');
         }
     }, [user, isLoading, navigate, location.pathname]);
 

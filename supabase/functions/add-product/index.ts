@@ -50,7 +50,7 @@ serve(async (req) => {
       insertData.image_path = image_path;
     }
 
-    console.log('Inserting data:', insertData);
+    console.log('Inserting data:', insertData, 'index');
 
     const { data, error } = await supabaseClient
       .from('products')
@@ -58,11 +58,11 @@ serve(async (req) => {
       .select();
 
     if (error) {
-      console.error('Insert error:', error);
+      console.error('Insert error:', error, 'index');
 
       // OPTION 2: If insert fails, try without imageUrl
       if (error.message.includes('imageUrl')) {
-        console.log('Retrying without imageUrl...');
+        console.log('Retrying without imageUrl...', undefined, 'index');
         delete insertData.imageUrl;
         // delete insertData.image_url;
         // delete insertData.imageurl;
@@ -94,7 +94,7 @@ serve(async (req) => {
     );
 
   } catch (error) {
-    console.error('Function error:', error);
+    console.error('Function error:', error, 'index');
     return new Response(
       JSON.stringify({ error: error.message }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

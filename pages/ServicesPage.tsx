@@ -3,6 +3,7 @@ import { Service } from '../types';
 import { Scissors, Clock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
+import { logger } from '../src/lib/logger';
 
 const ServicesPage: React.FC = () => {
     const navigate = useNavigate();
@@ -18,7 +19,7 @@ const ServicesPage: React.FC = () => {
                 const fetchedServices = await api.getServices();
                 setServices(fetchedServices);
             } catch (err) {
-                console.error('❌ Error fetching services:', err);
+                logger.error('❌ Error fetching services:', err, 'ServicesPage');
                 setError('Failed to load services. Please try again later.');
             } finally {
                 setIsLoading(false);

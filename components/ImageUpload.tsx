@@ -3,12 +3,14 @@ import { Upload, X } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { supabase } from '../services/supabaseClient';
 import type { StorageBucket } from '../services/imageResolver';
+import { logger } from '../src/lib/logger';
+import { api } from '../services/api'; // Import the API service to access CSRF token functionality
 
 interface ImageUploadProps {
   onImageUpload: (imagePath: string, publicUrl: string) => void;
   currentImage?: string;
   bucket: StorageBucket;
-  entityType: 'product' | 'barber' | 'service';
+  entityType: 'product' | 'barber' | 'service' | 'site';
   entityId?: string;
 }
 
@@ -29,13 +31,15 @@ export const ImageUpload: React.FC<ImageUploadProps> = ({
     // Validate file type
     if (!file.type.startsWith('image/')) {
       // eslint-disable-next-line no-alert
-      console.warn('Please select an image file');
+      logger.warn('Please select an image file', undefined, 'ImageUpload');
       return;
     }
 
-    // Validate file size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      alert('Image must be smaller than 5MB');
+    // Validate file size (max 10MB for hero images, 5MB for others)
+    const maxSize = entityType === 'site' ? 10 * 1024 * 1024 : 5 * 1024 * 1024;
+    const maxSizeLabel = entityType === 'site' ? '10MB' : '5MB';
+    if (file.size > maxSize) {
+      alert(`Image must be smaller than ${maxSizeLabel}`);
       return;
     }
 
@@ -62,15 +66,25 @@ export const ImageUpload: React.FC<ImageUploadProps> = ({
 
       // Get the Supabase URL from environment
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-
+      
       // Get current session for authentication
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
 
-      const response = await fetch(`${supabaseUrl}/functions/v1/upload-image`, {
+      // Ensure CSRF Token is present
+      const csrfToken = await api.fetchCSRFToken();
+
+      // Use different endpoints based on entity type
+      const uploadEndpoint = entityType === 'site' 
+        ? `${supabaseUrl}/functions/v1/upload-site-image`
+        : `${supabaseUrl}/functions/v1/upload-image`;
+
+      const response = await fetch(uploadEndpoint, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
+          // Include CSRF token if available
+          ...(csrfToken && { 'X-CSRF-Token': csrfToken })
         },
         body: formData,
       });
@@ -83,9 +97,9 @@ export const ImageUpload: React.FC<ImageUploadProps> = ({
       onImageUpload(filePath, result.publicUrl);
 
     } catch (error) {
-      console.error('Upload error:', error);
+      logger.error('Upload error:', error, 'ImageUpload');
       // eslint-disable-next-line no-alert
-      console.error('Failed to upload image');
+      logger.error('Failed to upload image', undefined, 'ImageUpload');
       setPreviewUrl(currentImage || '');
     } finally {
       setIsUploading(false);

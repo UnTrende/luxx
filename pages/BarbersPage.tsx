@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import HeroBarberCard from '../components/HeroBarberCard';
 import { Barber } from '../types';
+import { logger } from '../src/lib/logger';
 import { api } from '../services/api'; // Import our new API service
 
 const BarbersPage: React.FC = () => {
@@ -12,8 +13,11 @@ const BarbersPage: React.FC = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    // Extract preselected service from location state (from ServicesPage)
+    // Extract preselected service and reward booking info from location state
     const preselectedServiceId = (location.state as any)?.preselectedServiceId;
+    const isRewardBooking = (location.state as any)?.isRewardBooking || false;
+    const pointsToRedeem = (location.state as any)?.pointsToRedeem || 0;
+    const rewardServiceName = (location.state as any)?.rewardServiceName;
 
     useEffect(() => {
         const fetchBarbers = async () => {
@@ -35,7 +39,7 @@ const BarbersPage: React.FC = () => {
         // Refetch when page becomes visible (e.g., returning from profile page)
         const handleVisibilityChange = () => {
             if (document.visibilityState === 'visible') {
-                console.log('🔄 Page visible - refreshing barber data');
+                logger.info('🔄 Page visible - refreshing barber data', undefined, 'BarbersPage');
                 fetchBarbers();
             }
         };
@@ -77,12 +81,16 @@ const BarbersPage: React.FC = () => {
                             key={barber.id}
                             barber={barber}
                             onClick={() => {
-                                console.log('📍 Barber selected:', barber.name, barber.id);
-                                console.log('📍 Preselected service:', preselectedServiceId);
+                                logger.info('📍 Barber selected:', barber.name, barber.id, 'BarbersPage');
+                                logger.info('📍 Preselected service:', preselectedServiceId, 'BarbersPage');
+                                logger.info('📍 Is reward booking:', isRewardBooking, 'BarbersPage');
                                 navigate(`/book/${barber.id}`, {
                                     state: {
                                         barber,
-                                        preselectedServiceId
+                                        preselectedServiceId,
+                                        isRewardBooking,
+                                        pointsToRedeem,
+                                        rewardServiceName
                                     }
                                 });
                             }}

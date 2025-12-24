@@ -37,7 +37,7 @@ describe('Validation Schemas', () => {
                 barberId: '123e4567-e89b-12d3-a456-426614174000', // Valid UUID
                 serviceIds: ['123e4567-e89b-12d3-a456-426614174000'],
                 date: futureDate.toISOString(),
-                timeSlot: '14:30'
+                timeSlot: '2:30 PM' // Changed to 12-hour format with AM/PM
             });
             expect(result.success).toBe(true);
         });
@@ -49,7 +49,7 @@ describe('Validation Schemas', () => {
                 barberId: '123e4567-e89b-12d3-a456-426614174000',
                 serviceIds: ['123e4567-e89b-12d3-a456-426614174000'],
                 date: today.toISOString(),
-                timeSlot: '14:30'
+                timeSlot: '2:30 PM' // Changed to 12-hour format with AM/PM
             });
             expect(result.success).toBe(true);
         });

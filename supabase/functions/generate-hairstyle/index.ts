@@ -26,7 +26,7 @@ serve(async (req) => {
         const isAllowed = await checkRateLimit(req, supabaseClient, 5, 60);
 
         if (!isAllowed) {
-            console.warn(`Rate limit exceeded for user ${user.id}`);
+            console.warn(`Rate limit exceeded for user ${user.id}`, undefined, 'index');
             return new Response(JSON.stringify({ error: 'Too many requests. Please wait a moment.' }), {
                 headers: { ...corsHeaders, 'Content-Type': 'application/json' },
                 status: 429,
@@ -43,7 +43,7 @@ serve(async (req) => {
         // 4. Get API Key from environment variables
         const apiKey = Deno.env.get('GEMINI_API_KEY');
         if (!apiKey) {
-            console.error('GEMINI_API_KEY not set');
+            console.error('GEMINI_API_KEY not set', undefined, 'index');
             throw new Error('Server configuration error');
         }
 
@@ -81,7 +81,7 @@ serve(async (req) => {
 
         if (!response.ok) {
             const errorText = await response.text();
-            console.error('Gemini API Error:', errorText);
+            console.error('Gemini API Error:', errorText, 'index');
             throw new Error(`Gemini API failed: ${response.statusText}`);
         }
 
@@ -89,11 +89,11 @@ serve(async (req) => {
 
         // Extract the generated image
         // Gemini returns candidates -> content -> parts
-        const generatedPart = data.candidates?.[0]?.content?.parts?.find((p: any) => p.inline_data);
+        const generatedPart = data.candidates?.[0]?.content?.parts?.find((p: unknown) => p.inline_data);
 
         if (!generatedPart) {
             // Sometimes it might return text if it refused to generate an image
-            const textPart = data.candidates?.[0]?.content?.parts?.find((p: any) => p.text);
+            const textPart = data.candidates?.[0]?.content?.parts?.find((p: unknown) => p.text);
             if (textPart) {
                 throw new Error(`AI refused to generate image: ${textPart.text}`);
             }
@@ -109,7 +109,7 @@ serve(async (req) => {
             status: 200,
         });
     } catch (error) {
-        console.error('Error in generate-hairstyle:', error);
+        console.error('Error in generate-hairstyle:', error, 'index');
         return new Response(JSON.stringify({ error: error.message }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
             status: 400,

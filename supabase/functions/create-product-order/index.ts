@@ -14,22 +14,22 @@ serve(async (req) => {
   }
 
   try {
-    console.log("=== START create-product-order DEBUG ===");
+    console.log("=== START create-product-order DEBUG ===", undefined, 'index');
 
     // Log raw request
     const requestBody = await req.text();
-    console.log("📥 Raw request body:", requestBody);
+    console.log("📥 Raw request body:", requestBody, 'index');
 
     // Parse request
     const parsedBody = JSON.parse(requestBody);
     const { order } = parsedBody;
 
-    console.log("📥 Parsed order:", { order });
+    console.log("📥 Parsed order:", { order }, 'index');
 
     // Authenticate user
-    console.log("🔐 Authenticating user...");
+    console.log("🔐 Authenticating user...", undefined, 'index');
     const user = await authenticateUser(req);
-    console.log("👤 Authenticated user result:", { userId: user?.id, hasEmail: !!user?.email });
+    console.log("👤 Authenticated user result:", { userId: user?.id, hasEmail: !!user?.email }, 'index');
 
     // Validate input
     if (!order) {
@@ -49,7 +49,7 @@ serve(async (req) => {
       throw new Error("User authentication failed - no user ID");
     }
 
-    console.log("📦 Fetching product details...");
+    console.log("📦 Fetching product details...", undefined, 'index');
     // Fetch product details
     const { data: product, error: productError } = await supabaseAdmin
       .from('products')
@@ -58,7 +58,7 @@ serve(async (req) => {
       .single();
 
     if (productError) {
-      console.error("Product fetch error:", productError);
+      console.error("Product fetch error:", productError, 'index');
       throw new Error(`Product fetch failed: ${productError.message}`);
     }
 
@@ -66,14 +66,14 @@ serve(async (req) => {
       throw new Error("Product not found with ID: " + order.productId);
     }
 
-    console.log("🛍️ Product found:", { name: product.name, stock: product.stock, price: product.price });
+    console.log("🛍️ Product found:", { name: product.name, stock: product.stock, price: product.price }, 'index');
 
     // Check stock availability
     if (product.stock < order.quantity) {
       throw new Error(`Insufficient stock. Available: ${product.stock}, Requested: ${order.quantity}`);
     }
 
-    console.log("📝 Creating order record...");
+    console.log("📝 Creating order record...", undefined, 'index');
     // Create order record
     const { data: newOrder, error: orderError } = await supabaseAdmin
       .from('product_orders')
@@ -89,7 +89,7 @@ serve(async (req) => {
       .single();
 
     if (orderError) {
-      console.error("Order creation error:", orderError);
+      console.error("Order creation error:", orderError, 'index');
       throw new Error(`Order creation failed: ${orderError.message}`);
     }
 
@@ -98,9 +98,9 @@ serve(async (req) => {
       throw new Error("Failed to create order record - no ID returned");
     }
 
-    console.log("✅ Order created:", { orderId: newOrder.id });
+    console.log("✅ Order created:", { orderId: newOrder.id }, 'index');
 
-    console.log("📉 Updating product stock...");
+    console.log("📉 Updating product stock...", undefined, 'index');
     // Update product stock
     const { error: stockError } = await supabaseAdmin
       .from('products')
@@ -108,11 +108,11 @@ serve(async (req) => {
       .eq('id', order.productId);
 
     if (stockError) {
-      console.error("Stock update error:", stockError);
+      console.error("Stock update error:", stockError, 'index');
       throw new Error(`Stock update failed: ${stockError.message}`);
     }
 
-    console.log("🔔 Creating notifications...");
+    console.log("🔔 Creating notifications...", undefined, 'index');
     // Create notification for admins
     const { data: admins } = await supabaseAdmin
       .from('app_users')
@@ -132,17 +132,17 @@ serve(async (req) => {
         .insert(notifications);
 
       if (notificationError) {
-        console.error("Failed to create notifications:", notificationError.message);
+        console.error("Failed to create notifications:", notificationError.message, 'index');
       }
     }
 
-    console.log("✅ Order created successfully:", newOrder.id);
-    console.log("=== END create-product-order DEBUG ===");
+    console.log("✅ Order created successfully:", newOrder.id, 'index');
+    console.log("=== END create-product-order DEBUG ===", undefined, 'index');
 
     return successResponse(newOrder, 201);
   } catch (error) {
-    console.error("💥 Error creating product order:", error);
-    console.log("=== ERROR END create-product-order DEBUG ===");
+    console.error("💥 Error creating product order:", error, 'index');
+    console.log("=== ERROR END create-product-order DEBUG ===", undefined, 'index');
     return handleError(error, "create-product-order");
   }
 });

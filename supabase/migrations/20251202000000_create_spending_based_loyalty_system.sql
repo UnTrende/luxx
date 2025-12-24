@@ -51,12 +51,14 @@ CREATE INDEX IF NOT EXISTS idx_loyalty_transactions_created_at ON loyalty_transa
 ALTER TABLE loyalty_settings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE loyalty_transactions ENABLE ROW LEVEL SECURITY;
 
--- 6. Create policies for loyalty_transactions
+-- 6. Create policies for loyalty_transactions (idempotent)
+DROP POLICY IF EXISTS "Users can view their own loyalty transactions" ON loyalty_transactions;
 CREATE POLICY "Users can view their own loyalty transactions" 
 ON loyalty_transactions 
 FOR SELECT 
 USING (user_id = auth.uid());
 
+DROP POLICY IF EXISTS "Admins can view all loyalty transactions" ON loyalty_transactions;
 CREATE POLICY "Admins can view all loyalty transactions" 
 ON loyalty_transactions 
 FOR SELECT 
@@ -65,13 +67,15 @@ USING ( EXISTS (
     SELECT 1 FROM app_users WHERE id = auth.uid() AND role = 'admin'
 ));
 
--- 7. Create policies for loyalty_settings
+-- 7. Create policies for loyalty_settings (idempotent)
+DROP POLICY IF EXISTS "Everyone can view loyalty settings" ON loyalty_settings;
 CREATE POLICY "Everyone can view loyalty settings" 
 ON loyalty_settings 
 FOR SELECT 
 TO authenticated 
 USING (true);
 
+DROP POLICY IF EXISTS "Only admins can update loyalty settings" ON loyalty_settings;
 CREATE POLICY "Only admins can update loyalty settings" 
 ON loyalty_settings 
 FOR UPDATE 

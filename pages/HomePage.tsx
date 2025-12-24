@@ -8,6 +8,7 @@ import { Barber, Service } from '../types';
 import { resolveBarberPhoto } from '../services/imageResolver';
 import { useAuth } from '../contexts/AuthContext';
 import { useSettings } from '../contexts/SettingsContext';
+import { logger } from '../src/lib/logger';
 
 const HomePage: React.FC = () => {
   const navigate = useNavigate();
@@ -25,24 +26,32 @@ const HomePage: React.FC = () => {
         const allBarbers = await api.getBarbers();
         setFeaturedBarbers(allBarbers.slice(0, 3));
       } catch (error) {
-        console.error("Failed to fetch barbers for homepage:", error);
+        logger.error("Failed to fetch barbers for homepage:", error, 'HomePage');
       }
     };
 
     const updateHeroImages = () => {
+      logger.info('🔧 Updating hero images. Settings:', settings, 'Loading:', isSettingsLoading, 'HomePage');
       if (!isSettingsLoading && settings) {
         const heroUrls = [];
         if (settings.hero_images && Array.isArray(settings.hero_images)) {
+          logger.info('🔧 Hero images from settings:', settings.hero_images, 'HomePage');
           for (const imagePath of settings.hero_images) {
             if (imagePath) {
-              heroUrls.push(`/storage/v1/object/public/product-images/${imagePath}`);
+              // Use the correct bucket for hero images with full URL
+              const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+              const imageUrl = `${supabaseUrl}/storage/v1/object/public/hero-images/${imagePath}`;
+              logger.info('🔧 Constructed hero image URL:', imageUrl, 'HomePage');
+              heroUrls.push(imageUrl);
             }
           }
         }
+        logger.info('🔧 Final hero URLs:', heroUrls, 'HomePage');
         setHeroImages(heroUrls);
       } else {
         const imagesString = localStorage.getItem('heroImages');
         const images = imagesString ? JSON.parse(imagesString) : [];
+        logger.info('🔧 Hero images from localStorage:', images, 'HomePage');
         setHeroImages(images);
       }
     };
@@ -56,7 +65,7 @@ const HomePage: React.FC = () => {
         const allServices = await api.getServices();
         setServices(allServices);
       } catch (error) {
-        console.error('Failed to fetch services for homepage:', error);
+        logger.error('Failed to fetch services for homepage:', error, 'HomePage');
         setServices([]);
       }
     })();
@@ -104,23 +113,23 @@ const HomePage: React.FC = () => {
             key={i}
             src={img}
             alt={`Hero image ${i + 1}`}
-            className={`absolute top-0 left-0 w-full h-full object-cover transition-all duration-[2000ms] ease-in-out transform scale-105 ${i === currentIndex ? "opacity-100 scale-100" : "opacity-0"}`}
+            className={`absolute top-0 left-0 w-full h-full object-contain transition-all duration-[2000ms] ease-in-out transform scale-105 ${i === currentIndex ? "opacity-100 scale-100" : "opacity-0"}`}
           />
         ))}
 
         {/* Content */}
-        <div className="relative z-20 p-6 max-w-5xl mx-auto flex flex-col items-center">
+        <div className="relative z-20 p-4 sm:p-6 max-w-6xl mx-auto flex flex-col items-center">
           <div className="mb-8 animate-fade-in">
             <span className="text-gold uppercase tracking-[0.4em] text-xs md:text-sm font-medium border-b border-gold/50 pb-3">
               Dubai's Premier Grooming Destination
             </span>
           </div>
 
-          <h1 className="text-6xl md:text-8xl lg:text-9xl font-serif font-bold text-white mb-10 leading-tight animate-slide-up">
-            Precision <span className="text-gold-gradient italic">&</span> Style
+          <h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl xl:text-9xl font-serif font-bold text-white mb-10 leading-tight animate-slide-up px-2 text-center">
+            Precision <span className="text-gold-gradient italic inline-block transform -skew-x-12 px-1">&</span> Style
           </h1>
 
-          <p className="text-lg md:text-2xl text-light-text/80 max-w-3xl mx-auto mb-16 font-light leading-relaxed animate-slide-up" style={{ animationDelay: '0.2s' }}>
+          <p className="text-lg md:text-2xl text-light-text/80 max-w-3xl mx-auto mb-16 font-light leading-relaxed animate-slide-up text-center px-4" style={{ animationDelay: '0.2s' }}>
             Experience the art of traditional barbering infused with modern luxury.
             Where every cut is a masterpiece.
           </p>

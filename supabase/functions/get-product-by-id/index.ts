@@ -48,7 +48,7 @@ serve(async (req) => {
             status: 200,
         });
     } catch (error) {
-        console.error("Error fetching product by ID:", error);
+        console.error("Error fetching product by ID:", error, 'index');
         return new Response(JSON.stringify({ error: error.message }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
             status: 400,

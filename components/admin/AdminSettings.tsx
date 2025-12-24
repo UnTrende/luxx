@@ -1,9 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'react-toastify';
 import { SiteSettings } from '../../types';
 import { api } from '../../services/api';
-import { Settings, Save, X, Building, Mail, Phone, MapPin, Globe, Shield } from 'lucide-react';
+import { Settings, Save, X, Building, Mail, Phone, MapPin, Globe, Shield, Image as ImageIcon } from 'lucide-react';
+import { ImageUpload } from '../ImageUpload';
+import { logger } from '../../src/lib/logger';
 
 interface AdminSettingsProps {
     siteSettings: SiteSettings;
@@ -12,12 +14,41 @@ interface AdminSettingsProps {
 
 export const AdminSettings: React.FC<AdminSettingsProps> = ({ siteSettings, setSiteSettings }) => {
     const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+    const [heroImages, setHeroImages] = useState<string[]>([]);
+    const [heroImagePaths, setHeroImagePaths] = useState<string[]>([]);
     const settingsForm = useForm<SiteSettings>();
+
+    // Initialize hero images when siteSettings change
+    useEffect(() => {
+        if (siteSettings.hero_images) {
+            setHeroImagePaths(siteSettings.hero_images);
+            // Convert paths to full URLs for display
+            const urls = siteSettings.hero_images.map(path => 
+                path ? `/storage/v1/object/public/hero-images/${path}` : ''
+            );
+            setHeroImages(urls);
+        } else {
+            // Initialize with empty arrays if no hero images exist
+            setHeroImagePaths([]);
+            setHeroImages([]);
+        }
+    }, [siteSettings]);
 
     const handleSettingsSubmit = async (data: SiteSettings) => {
         try {
+            // Filter out empty paths
+            const filteredHeroImagePaths = heroImagePaths.filter(path => path !== '');
+
+            // Combine existing settings with hero images
+            const updatedSettings = {
+                ...data,
+                hero_images: filteredHeroImagePaths
+            };
+
+            logger.info('🔧 Saving settings:', { data, heroImagePaths, filteredHeroImagePaths, updatedSettings }, 'AdminSettings');
+
             // Optimistic update
-            setSiteSettings(prev => ({ ...prev, ...data }));
+            setSiteSettings(prev => ({ ...prev, ...updatedSettings }));
 
             // Map to API format
             const apiData = {
@@ -27,21 +58,66 @@ export const AdminSettings: React.FC<AdminSettingsProps> = ({ siteSettings, setS
                 contactPhone: data.contact_phone,
                 location: data.location,
                 siteLogo: (data as any).site_logo,
+                heroImages: filteredHeroImagePaths
             };
+
+            logger.info('🔧 Sending API data:', apiData, 'AdminSettings');
 
             await api.updateSettings(apiData);
             toast.success('Settings updated successfully');
             setIsSettingsModalOpen(false);
         } catch (error) {
-            console.error('Settings update failed:', error);
+            logger.error('Settings update failed:', error, 'AdminSettings');
             toast.error('Failed to update settings');
 
             // Revert
             const result = await api.getSettings();
             if (result.success) {
                 setSiteSettings(result.data);
+                if (result.data.hero_images) {
+                    setHeroImagePaths(result.data.hero_images);
+                    // Convert paths to full URLs for display
+                    const urls = result.data.hero_images.map(path => 
+                        path ? `/storage/v1/object/public/hero-images/${path}` : ''
+                    );
+                    setHeroImages(urls);
+                } else {
+                    setHeroImagePaths([]);
+                    setHeroImages([]);
+                }
             }
         }
+    };
+
+    const handleHeroImageUpload = (index: number, imagePath: string, publicUrl: string) => {
+        const newPaths = [...heroImagePaths];
+        const newUrls = [...heroImages];
+        
+        if (imagePath) {
+            newPaths[index] = imagePath;
+            newUrls[index] = publicUrl;
+        } else {
+            // Remove image
+            newPaths.splice(index, 1);
+            newUrls.splice(index, 1);
+        }
+        
+        setHeroImagePaths(newPaths);
+        setHeroImages(newUrls);
+    };
+
+    const addHeroImageSlot = () => {
+        setHeroImagePaths([...heroImagePaths, '']);
+        setHeroImages([...heroImages, '']);
+    };
+
+    const removeHeroImage = (index: number) => {
+        const newPaths = [...heroImagePaths];
+        const newUrls = [...heroImages];
+        newPaths.splice(index, 1);
+        newUrls.splice(index, 1);
+        setHeroImagePaths(newPaths);
+        setHeroImages(newUrls);
     };
 
     return (
@@ -176,6 +252,28 @@ export const AdminSettings: React.FC<AdminSettingsProps> = ({ siteSettings, setS
                                     <label className="text-sm font-bold text-white">Allow New User Signups</label>
                                 </div>
 
+                                {/* Tax Rate */}
+                                <div>
+                                    <label className="block text-xs font-bold uppercase tracking-widest text-gold mb-2">Tax Rate (%)</label>
+                                    <div className="relative">
+                                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-subtle-text font-bold">%</span>
+                                        <input
+                                            type="number"
+                                            step="0.01"
+                                            min="0"
+                                            max="100"
+                                            {...settingsForm.register('tax_rate', { 
+                                                required: 'Tax rate is required',
+                                                min: { value: 0, message: 'Tax rate cannot be negative' },
+                                                max: { value: 100, message: 'Tax rate cannot exceed 100%' }
+                                            })}
+                                            className="w-full bg-black/40 border border-white/10 rounded-xl pl-12 pr-4 py-3 text-white placeholder:text-subtle-text focus:outline-none focus:border-gold/50 focus:ring-1 focus:ring-gold/50 transition-all"
+                                            placeholder="e.g., 10"
+                                        />
+                                    </div>
+                                    <p className="text-xs text-subtle-text mt-2">This tax rate will be applied to all transactions in the billing system</p>
+                                </div>
+
                                 {/* Contact Email */}
                                 <div>
                                     <label className="block text-xs font-bold uppercase tracking-widest text-gold mb-2">Contact Email</label>
@@ -213,6 +311,45 @@ export const AdminSettings: React.FC<AdminSettingsProps> = ({ siteSettings, setS
                                             className="w-full bg-black/40 border border-white/10 rounded-xl pl-12 pr-4 py-3 text-white placeholder:text-subtle-text focus:outline-none focus:border-gold/50 focus:ring-1 focus:ring-gold/50 transition-all"
                                             placeholder="123 Main St, City, Country"
                                         />
+                                    </div>
+                                </div>
+
+                                {/* Hero Images */}
+                                <div>
+                                    <div className="flex justify-between items-center mb-2">
+                                        <label className="block text-xs font-bold uppercase tracking-widest text-gold">Hero Images</label>
+                                        <button
+                                            type="button"
+                                            onClick={addHeroImageSlot}
+                                            className="text-xs bg-gold/10 text-gold px-2 py-1 rounded-lg hover:bg-gold/20 transition-colors"
+                                        >
+                                            Add Image
+                                        </button>
+                                    </div>
+                                    <p className="text-xs text-subtle-text mb-4">Recommended size: 1920x1080px (16:9 ratio)</p>
+                                    
+                                    <div className="space-y-4">
+                                        {heroImagePaths.map((_, index) => (
+                                            <div key={index} className="flex items-start gap-4">
+                                                <div className="flex-1">
+                                                    <ImageUpload
+                                                        onImageUpload={(path, url) => handleHeroImageUpload(index, path, url)}
+                                                        currentImage={heroImages[index]}
+                                                        bucket="hero-images"
+                                                        entityType="site"
+                                                    />
+                                                </div>
+                                                {heroImagePaths.length > 1 && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => removeHeroImage(index)}
+                                                        className="mt-2 text-red-500 hover:text-red-400 transition-colors"
+                                                    >
+                                                        <X size={20} />
+                                                    </button>
+                                                )}
+                                            </div>
+                                        ))}
                                     </div>
                                 </div>
 

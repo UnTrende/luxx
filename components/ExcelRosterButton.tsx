@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { Grid3X3, X, FileSpreadsheet, Save, Loader2 } from 'lucide-react';
 import SimpleExcelRoster from './SimpleExcelRoster';
 import { api } from '../services/api';
+import { logger } from '../src/lib/logger';
 
 interface Barber {
   id: string;
@@ -14,7 +15,7 @@ interface Barber {
 interface ExcelRosterButtonProps {
   onRosterUpdate?: () => void;
   editMode?: boolean;
-  existingRoster?: any;
+  existingRoster?: unknown;
 }
 
 export default function ExcelRosterButton({ onRosterUpdate, editMode = false, existingRoster }: ExcelRosterButtonProps) {
@@ -30,7 +31,7 @@ export default function ExcelRosterButton({ onRosterUpdate, editMode = false, ex
       const barberData = Array.isArray(response) ? response : (response as any)?.barbers || [];
 
       // Ensure proper format
-      const formattedBarbers = barberData.map((barber: any) => ({
+      const formattedBarbers = barberData.map((barber: unknown) => ({
         id: barber.id || barber.user_id,
         name: barber.name || barber.full_name || 'Unknown',
         email: barber.email || ''
@@ -38,7 +39,7 @@ export default function ExcelRosterButton({ onRosterUpdate, editMode = false, ex
 
       setBarbers(formattedBarbers);
     } catch (error) {
-      console.error('Failed to load barbers:', error);
+      logger.error('Failed to load barbers:', error, 'ExcelRosterButton');
       // Fallback data for testing
       setBarbers([
         { id: '1', name: 'John Doe', email: 'john@example.com' },

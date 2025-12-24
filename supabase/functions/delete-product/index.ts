@@ -38,7 +38,7 @@ serve(async (req) => {
       .eq('id', productId);
 
     if (error) {
-      console.error('Database error:', error);
+      console.error('Database error:', error, 'index');
       throw error;
     }
 
@@ -48,7 +48,7 @@ serve(async (req) => {
     );
 
   } catch (error) {
-    console.error('Function error:', error);
+    console.error('Function error:', error, 'index');
     return new Response(
       JSON.stringify({ error: error.message }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

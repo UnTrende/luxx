@@ -2,9 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { Calendar, Clock } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { api } from '../services/api';
-
+import { logger } from '../src/lib/logger';
 interface DateTimeSelectionStepProps {
-  barber: any;
+  barber: unknown;
   selectedServices: string[];
   onNext: (date: string, time: string) => void;
   onBack: () => void;
@@ -20,7 +20,8 @@ const DateTimeSelectionStep: React.FC<DateTimeSelectionStepProps> = ({
   const [availableSlots, setAvailableSlots] = useState<string[]>([]);
   const [selectedSlot, setSelectedSlot] = useState<string>('');
   const [loading, setLoading] = useState(false);
-
+  const [availableDates, setAvailableDates] = useState<Set<string>>(new Set());
+  const [datesLoading, setDatesLoading] = useState(false);
   // Generate dates for next 14 days
   const generateDates = () => {
     const dates = [];
@@ -29,15 +30,45 @@ const DateTimeSelectionStep: React.FC<DateTimeSelectionStepProps> = ({
     for (let i = 1; i <= 14; i++) {
       const date = new Date(today);
       date.setDate(today.getDate() + i);
-
-      // Skip Sundays (0) and Mondays (1) if barber is off
-      if (date.getDay() !== 0 && date.getDay() !== 1) {
-        dates.push(date.toISOString().split('T')[0]);
-      }
+      dates.push(date.toISOString().split('T')[0]);
     }
 
     return dates;
   };
+
+  // Check which dates are available based on roster
+  const checkAvailableDates = async () => {
+    if (!barber?.id) return;
+    
+    setDatesLoading(true);
+    try {
+      const dates = generateDates();
+      const available = new Set<string>();
+      
+      // Check each date for availability
+      for (const date of dates) {
+        const result = await api.isBarberAvailable(barber.id, date);
+        if (result.available) {
+          available.add(date);
+        }
+      }
+      
+      setAvailableDates(available);
+    } catch (error) {
+      logger.error('Failed to check available dates:', error, 'DateTimeSelectionStep');
+      toast.error('Failed to load available dates. Showing all dates.');
+      // Fallback: make all dates available if there's an error
+      const dates = generateDates();
+      setAvailableDates(new Set(dates));
+    } finally {
+      setDatesLoading(false);
+    }
+  };
+
+  // Load available dates when component mounts or barber changes
+  useEffect(() => {
+    checkAvailableDates();
+  }, [barber?.id]);
 
   const loadAvailableSlots = async (date: string) => {
     setLoading(true);
@@ -46,14 +77,14 @@ const DateTimeSelectionStep: React.FC<DateTimeSelectionStepProps> = ({
       const slots = await api.getAvailableSlots(barber.id, date, selectedServices);
       setAvailableSlots(slots);
     } catch (error) {
-      console.error('Failed to load available slots:', error);
+      logger.error('Failed to load available slots:', error, 'DateTimeSelectionStep');
       toast.error('Failed to load available slots. Please try a different date.');
       // Fallback: try without service IDs
       try {
         const slots = await api.getAvailableSlots(barber.id, date);
         setAvailableSlots(slots);
       } catch (fallbackError) {
-        console.error('Fallback slot loading also failed:', fallbackError);
+        logger.error('Fallback slot loading also failed:', fallbackError, 'DateTimeSelectionStep');
         toast.error('Unable to load slots at this time. Please try again later.');
         setAvailableSlots([]);
       }
@@ -89,24 +120,42 @@ const DateTimeSelectionStep: React.FC<DateTimeSelectionStepProps> = ({
             {generateDates().map(date => {
               const isSelected = selectedDate === date;
               const dateObj = new Date(date);
+              const isAvailable = availableDates.has(date);
+              const isLoading = datesLoading;
+              
               return (
                 <button
                   key={date}
-                  onClick={() => handleDateSelect(date)}
-                  className={`flex-shrink-0 flex flex-col items-center justify-center w-20 h-24 rounded-2xl border transition-all duration-300 ${isSelected
-                      ? 'bg-white text-midnight border-white scale-110 shadow-glow'
-                      : 'bg-white/5 text-subtle-text border-white/10 hover:bg-white/10 hover:border-white/30'
-                    }`}
+                  onClick={() => isAvailable && handleDateSelect(date)}
+                  disabled={!isAvailable || isLoading}
+                  className={`flex-shrink-0 flex flex-col items-center justify-center w-20 h-24 rounded-2xl border transition-all duration-300 relative ${
+                    isLoading 
+                      ? 'bg-white/5 text-subtle-text border-white/10 opacity-50 cursor-not-allowed' 
+                      : isSelected
+                        ? 'bg-white text-midnight border-white scale-110 shadow-glow'
+                        : isAvailable
+                          ? 'bg-white/5 text-subtle-text border-white/10 hover:bg-white/10 hover:border-white/30 cursor-pointer'
+                          : 'bg-white/5 text-subtle-text/30 border-white/5 cursor-not-allowed'
+                  }`}
                 >
-                  <span className={`text-xs uppercase font-medium mb-1 ${isSelected ? 'text-midnight/70' : ''}`}>
-                    {dateObj.toLocaleDateString('en-US', { weekday: 'short' })}
-                  </span>
-                  <span className={`text-2xl font-bold ${isSelected ? 'text-midnight' : 'text-white'}`}>
-                    {dateObj.getDate()}
-                  </span>
-                  <span className={`text-[10px] uppercase ${isSelected ? 'text-midnight/70' : ''}`}>
-                    {dateObj.toLocaleDateString('en-US', { month: 'short' })}
-                  </span>
+                  {isLoading ? (
+                    <div className="w-4 h-4 border-2 border-subtle-text/30 border-t-transparent rounded-full animate-spin"></div>
+                  ) : (
+                    <>
+                      <span className={`text-xs uppercase font-medium mb-1 ${isSelected ? 'text-midnight/70' : ''}`}>
+                        {dateObj.toLocaleDateString('en-US', { weekday: 'short' })}
+                      </span>
+                      <span className={`text-2xl font-bold ${isSelected ? 'text-midnight' : 'text-white'}`}>
+                        {dateObj.getDate()}
+                      </span>
+                      <span className={`text-[10px] uppercase ${isSelected ? 'text-midnight/70' : ''}`}>
+                        {dateObj.toLocaleDateString('en-US', { month: 'short' })}
+                      </span>
+                      {!isAvailable && !isLoading && (
+                        <span className="absolute bottom-1 text-[8px] text-red-400 font-bold">OFF</span>
+                      )}
+                    </>
+                  )}
                 </button>
               );
             })}

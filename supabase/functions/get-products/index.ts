@@ -35,7 +35,7 @@ serve(async (req) => {
 
     return successResponse(normalizedProducts, 200);
   } catch (error) {
-    console.error('Error fetching products:', error);
+    console.error('Error fetching products:', error, 'index');
     return handleError(error, 'get-products');
   }
 });

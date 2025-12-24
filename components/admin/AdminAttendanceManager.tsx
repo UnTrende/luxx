@@ -3,6 +3,7 @@ import { toast } from 'react-toastify';
 import { Attendance, Barber } from '../../types';
 import { api } from '../../services/api';
 import { Clock, User, Calendar, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
+import { logger } from '../../src/lib/logger';
 
 interface AdminAttendanceManagerProps {
     attendanceRecords: Attendance[];
@@ -22,7 +23,7 @@ export const AdminAttendanceManager: React.FC<AdminAttendanceManagerProps> = ({ 
             await api.updateAttendanceStatus(attendanceId, newStatus);
             toast.success('Attendance status updated');
         } catch (error) {
-            console.error('Attendance update failed:', error);
+            logger.error('Attendance update failed:', error, 'AdminAttendanceManager');
             toast.error('Failed to update attendance');
 
             // Revert

@@ -6,6 +6,7 @@ import { Product } from '../../types';
 import { api } from '../../services/api';
 import { ImageUpload } from '../../components/ImageUpload';
 import { Edit2, Trash2, Plus, Search, Package, AlertTriangle } from 'lucide-react';
+import { logger } from '../../src/lib/logger';
 
 interface AdminProductsManagerProps {
     products: Product[];
@@ -72,7 +73,7 @@ export const AdminProductsManager: React.FC<AdminProductsManagerProps> = ({ prod
             setProductImagePath('');
             setProductImageUrl('');
         } catch (error) {
-            console.error('Product operation failed:', error);
+            logger.error('Product operation failed:', error, 'AdminProductsManager');
             toast.error('Failed to save product');
         }
     };
@@ -85,7 +86,7 @@ export const AdminProductsManager: React.FC<AdminProductsManagerProps> = ({ prod
             setProducts(prev => prev.filter(p => p.id !== id));
             toast.success('Product deleted successfully');
         } catch (error) {
-            console.error('Product deletion failed:', error);
+            logger.error('Product deletion failed:', error, 'AdminProductsManager');
             toast.error('Failed to delete product');
         }
     };

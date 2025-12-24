@@ -18,7 +18,7 @@ serve(async (req) => {
     const admin = await authenticateAdmin(req);
     
     const { barberId, services } = await req.json();
-    console.log('Updating services for barber:', barberId, services);
+    console.log('Updating services for barber:', barberId, services, 'index');
 
     // Validate input
     if (!barberId) {
@@ -36,7 +36,7 @@ serve(async (req) => {
       .single();
 
     if (testError) {
-      console.error('Barber access error:', testError);
+      console.error('Barber access error:', testError, 'index');
       throw testError;
     }
 
@@ -47,13 +47,13 @@ serve(async (req) => {
       .eq('barber_id', barberId);
 
     if (deleteError) {
-      console.error('Delete error:', deleteError);
+      console.error('Delete error:', deleteError, 'index');
       throw deleteError;
     }
 
     // Insert new services if provided
     if (services && services.length > 0) {
-      const barberServices = services.map((service: any) => ({
+      const barberServices = services.map((service: unknown) => ({
         barber_id: barberId,
         service_id: service.serviceId,
         price: service.price
@@ -64,7 +64,7 @@ serve(async (req) => {
         .insert(barberServices);
 
       if (insertError) {
-        console.error('Insert error:', insertError);
+        console.error('Insert error:', insertError, 'index');
         throw insertError;
       }
     }
@@ -77,7 +77,7 @@ serve(async (req) => {
       .single();
 
     if (selectError) {
-      console.error('Select error:', selectError);
+      console.error('Select error:', selectError, 'index');
       throw selectError;
     }
 
@@ -91,7 +91,7 @@ serve(async (req) => {
     );
 
   } catch (error) {
-    console.error('Function error:', error);
+    console.error('Function error:', error, 'index');
     return new Response(
       JSON.stringify({ error: error.message }),
       { status: 500, headers: { ...sharedCorsHeaders, ...corsHeaders, 'Content-Type': 'application/json' } }

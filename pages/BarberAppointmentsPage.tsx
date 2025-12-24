@@ -4,6 +4,8 @@ import { Booking, Service } from '../types';
 import { Calendar, Clock, User, Scissors, X, Filter, Search, Trash2, CheckCircle } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { api } from '../services/api';
+import { logger } from '../src/lib/logger';
+import { toast } from 'react-toastify'; // ADD THIS IMPORT
 
 const BarberAppointmentsPage: React.FC = () => {
     const navigate = useNavigate();
@@ -40,7 +42,7 @@ const BarberAppointmentsPage: React.FC = () => {
             setBookings(schedule);
             setAllServices(services);
         } catch (error) {
-            console.error("Failed to load appointments:", error);
+            logger.error("Failed to load appointments:", error, 'BarberAppointmentsPage');
         } finally {
             setIsLoading(false);
         }
@@ -96,6 +98,8 @@ const BarberAppointmentsPage: React.FC = () => {
         setIsBookingDetailOpen(false);
     };
 
+
+
     const confirmCancel = async () => {
         if (!selectedBooking || !cancelReason) {
             alert("Please provide a reason for cancellation.");
@@ -109,7 +113,7 @@ const BarberAppointmentsPage: React.FC = () => {
             setIsCancelModalOpen(false);
             setSelectedBooking(null);
         } catch (error) {
-            console.error("Failed to cancel booking:", error);
+            logger.error("Failed to cancel booking:", error, 'BarberAppointmentsPage');
             alert("Error: Could not cancel booking.");
         } finally {
             setIsCanceling(false);
@@ -170,7 +174,7 @@ const BarberAppointmentsPage: React.FC = () => {
                         <option value="all">All Status</option>
                         <option value="confirmed">Confirmed</option>
                         <option value="completed">Completed</option>
-                        <option value="canceled">Canceled</option>
+                        <option value="cancelled">Cancelled</option>
                     </select>
                 </div>
 
@@ -241,6 +245,8 @@ const BarberAppointmentsPage: React.FC = () => {
                                 <span className="text-xs text-subtle-text uppercase tracking-wider">Total</span>
                                 <span className="text-lg font-bold text-gold">${booking.totalPrice}</span>
                             </div>
+
+
                         </div>
                     ))}
                 </div>
@@ -328,13 +334,24 @@ const BarberAppointmentsPage: React.FC = () => {
                                 >
                                     Cancel Booking
                                 </button>
+
+
                                 <button
                                     onClick={() => setIsBookingDetailOpen(false)}
-                                    className="flex-1 py-4 bg-gold-gradient text-midnight rounded-xl font-bold text-xs uppercase tracking-wider hover:shadow-glow transition-all"
+                                    className="flex-1 py-4 bg-white/10 text-white rounded-xl font-bold text-xs uppercase tracking-wider hover:bg-white/20 transition-colors"
                                 >
                                     Close
                                 </button>
                             </div>
+                        )}
+
+                        {selectedBooking.status !== 'confirmed' && (
+                            <button
+                                onClick={() => setIsBookingDetailOpen(false)}
+                                className="w-full py-4 bg-gold-gradient text-midnight rounded-xl font-bold text-xs uppercase tracking-wider hover:shadow-glow transition-all"
+                            >
+                                Close
+                            </button>
                         )}
                     </div>
                 </div>

@@ -2,16 +2,24 @@ import React, { useState } from 'react';
 import { toast } from 'react-toastify';
 import { UserProfile } from '../../types';
 import { api } from '../../services/api';
-import { Search, Filter, User, Shield, Mail, Check, X } from 'lucide-react';
+import { Search, Filter, User, Shield, Mail, Check, X, Users, TrendingUp } from 'lucide-react';
+import { logger } from '../../src/lib/logger';
 
 interface AdminUsersManagerProps {
     users: UserProfile[];
     setUsers: React.Dispatch<React.SetStateAction<UserProfile[]>>;
+    showContextBanner?: boolean;
+    customerContext?: {
+        totalCustomers: number;
+        newCustomersThisWeek: number;
+        returningRate: number;
+    };
 }
 
-export const AdminUsersManager: React.FC<AdminUsersManagerProps> = ({ users, setUsers }) => {
+export const AdminUsersManager: React.FC<AdminUsersManagerProps> = ({ users, setUsers, showContextBanner, customerContext }) => {
     const [userSearchTerm, setUserSearchTerm] = useState('');
     const [roleFilter, setRoleFilter] = useState('all');
+    const [bannerVisible, setBannerVisible] = useState(showContextBanner);
 
     const handleUserRoleUpdate = async (userId: string, newRole: 'customer' | 'barber' | 'admin') => {
         if (!window.confirm(`Are you sure you want to change this user's role to ${newRole}?`)) return;
@@ -21,7 +29,7 @@ export const AdminUsersManager: React.FC<AdminUsersManagerProps> = ({ users, set
             setUsers(prev => prev.map(u => u.id === userId ? { ...u, role: newRole } : u));
             toast.success('User role updated successfully');
         } catch (error) {
-            console.error('User role update failed:', error);
+            logger.error('User role update failed:', error, 'AdminUsersManager');
             toast.error('Failed to update user role');
         }
     };
@@ -35,6 +43,38 @@ export const AdminUsersManager: React.FC<AdminUsersManagerProps> = ({ users, set
 
     return (
         <div className="space-y-6">
+            {/* Context Banner - Shows customer insights from dashboard */}
+            {bannerVisible && customerContext && (
+                <div className="bg-blue-500/10 border-l-4 border-blue-500 p-5 rounded-xl relative animate-slide-down">
+                    <div className="flex items-start justify-between">
+                        <div className="flex items-start gap-4">
+                            <div className="p-2 rounded-lg bg-blue-500/20">
+                                <Users className="text-blue-400" size={24} />
+                            </div>
+                            <div>
+                                <h3 className="text-white font-bold text-lg mb-1">👥 Customer Insights</h3>
+                                <p className="text-blue-200 text-sm">
+                                    <span className="font-bold">{customerContext.totalCustomers} total customers</span> in your database.
+                                    {customerContext.newCustomersThisWeek > 0 && (
+                                        <> <span className="text-green-400 font-bold">+{customerContext.newCustomersThisWeek} new</span> this week!</>
+                                    )}
+                                </p>
+                                <p className="text-blue-200/70 text-xs mt-1">
+                                    Returning customer rate: <span className="font-bold">{customerContext.returningRate}%</span>
+                                    {customerContext.returningRate > 50 ? ' - Great loyalty! 🎉' : ' - Consider implementing retention strategies.'}
+                                </p>
+                            </div>
+                        </div>
+                        <button
+                            onClick={() => setBannerVisible(false)}
+                            className="text-blue-400 hover:text-white transition-colors"
+                        >
+                            <X size={20} />
+                        </button>
+                    </div>
+                </div>
+            )}
+
             {/* Header & Controls */}
             <div className="flex flex-col md:flex-row justify-between items-end gap-4 bg-glass-card p-6 rounded-3xl border border-white/10 relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/10 blur-[80px] rounded-full pointer-events-none" />

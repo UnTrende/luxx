@@ -6,6 +6,7 @@ import DateTimeSelectionStep from '../components/DateTimeSelectionStep';
 import ConfirmationStep from '../components/ConfirmationStep';
 import { api } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
+import { logger } from '../src/lib/logger';
 
 const BookingPage: React.FC = () => {
   const { barberId: paramId } = useParams<{ barberId: string }>();
@@ -15,13 +16,10 @@ const BookingPage: React.FC = () => {
 
   // Extract preselected service from location state (menu card entry)
   const preselectedServiceId = (location.state as any)?.preselectedServiceId;
+  const isRewardBooking = (location.state as any)?.isRewardBooking || false;
+  const pointsToRedeem = (location.state as any)?.pointsToRedeem || 0;
 
-  console.log('📍 NAVIGATION DEBUG: BookingPage component mounted', {
-    paramId,
-    locationState: location.state,
-    preselectedServiceId,
-    currentPath: location.pathname + location.hash
-  });
+  logger.info('📍 NAVIGATION DEBUG: BookingPage component mounted', undefined, 'LegacyConsole');
 
   const [selectedBarber, setSelectedBarber] = useState<any>(null);
   const [selectedServices, setSelectedServices] = useState<string[]>([]);
@@ -36,17 +34,13 @@ const BookingPage: React.FC = () => {
   // Auto-populate services if preselected (menu card entry)
   useEffect(() => {
     if (preselectedServiceId && !selectedServices.includes(preselectedServiceId)) {
-      console.log('🎯 Auto-selecting preselected service:', preselectedServiceId);
+      logger.info('🎯 Auto-selecting preselected service:', preselectedServiceId, 'BookingPage');
       setSelectedServices([preselectedServiceId]);
     }
   }, [preselectedServiceId]);
 
   useEffect(() => {
-    console.log('📍 BookingPage useEffect triggered', {
-      paramId,
-      locationState: location.state,
-      preselectedServiceId
-    });
+    logger.info('📍 BookingPage useEffect triggered', undefined, 'LegacyConsole');
 
     const fromState = location.state as any;
     const stateBarber = fromState?.barber;
@@ -57,24 +51,24 @@ const BookingPage: React.FC = () => {
     (async () => {
       try {
         if (stateBarber) {
-          console.log('📍 BookingPage: Using barber from state', stateBarber);
+          logger.info('📍 BookingPage: Using barber from state', stateBarber, 'BookingPage');
           setSelectedBarber(stateBarber);
         } else if (id) {
-          console.log('📍 BookingPage: Fetching barber by ID', id);
+          logger.info('📍 BookingPage: Fetching barber by ID', id, 'BookingPage');
           const fetched = await api.getBarberById(id);
-          console.log('📍 BookingPage: Fetched barber', fetched);
+          logger.info('📍 BookingPage: Fetched barber', fetched, 'BookingPage');
           setSelectedBarber(fetched);
         } else {
           // try a last fallback
           const saved = localStorage.getItem('selectedBarberId');
-          console.log('📍 BookingPage: Trying localStorage fallback', saved);
+          logger.info('📍 BookingPage: Trying localStorage fallback', saved, 'BookingPage');
           if (saved) {
             const fetched = await api.getBarberById(saved);
             setSelectedBarber(fetched);
           }
         }
       } catch (e) {
-        console.error('📍 BookingPage: Failed to fetch barber:', e);
+        logger.error('📍 BookingPage: Failed to fetch barber:', e, 'BookingPage');
       } finally {
         setChecking(false);
       }
@@ -84,7 +78,7 @@ const BookingPage: React.FC = () => {
   // Account check before proceeding to time selection
   const checkAuthAndProceed = () => {
     if (!user) {
-      console.log('🔒 User not logged in, redirecting to SIGNUP (forced) with state preservation');
+      logger.info('🔒 User not logged in, redirecting to SIGNUP (forced) with state preservation', undefined, 'BookingPage');
       navigate('/login', {
         state: {
           from: location.pathname,
@@ -96,7 +90,7 @@ const BookingPage: React.FC = () => {
         }
       });
     } else {
-      console.log('✅ User logged in, proceeding to time selection');
+      logger.info('✅ User logged in, proceeding to time selection', undefined, 'BookingPage');
       handleNextStep();
     }
   };
@@ -108,7 +102,7 @@ const BookingPage: React.FC = () => {
     // 2. Barber is loaded
     // 3. Not already checking
     if (step === 2 && selectedBarber && !checking && !user) {
-      console.log('🔒 Step 2 loaded without user, triggering account check');
+      logger.info('🔒 Step 2 loaded without user, triggering account check', undefined, 'BookingPage');
       checkAuthAndProceed();
     }
   }, [step, selectedBarber, checking, user]);
@@ -127,22 +121,22 @@ const BookingPage: React.FC = () => {
 
   if (!selectedBarber) {
     // safer fallback is the barbers listing, not dashboard
-    console.warn('📍 BookingPage: No barber selected, redirecting to barbers page');
+    logger.warn('📍 BookingPage: No barber selected, redirecting to barbers page', undefined, 'BookingPage');
     return navigate('/barbers', { replace: true });
   }
 
   const handleNextStep = () => {
-    console.log('➡️ Moving to step:', step + 1);
+    logger.info('➡️ Moving to step:', step + 1, 'BookingPage');
     setStep(step + 1);
   };
 
   const handlePreviousStep = () => {
-    console.log('⬅️ Moving to step:', step - 1);
+    logger.info('⬅️ Moving to step:', step - 1, 'BookingPage');
     setStep(step - 1);
   };
 
   const handleServiceSelection = (services: string[]) => {
-    console.log('✅ Services selected:', services);
+    logger.info('✅ Services selected:', services, 'BookingPage');
     setSelectedServices(services);
   };
 
@@ -165,13 +159,7 @@ const BookingPage: React.FC = () => {
     navigate('/my-bookings');
   };
 
-  console.log('🎯 Current booking state:', {
-    step,
-    barber: selectedBarber.name,
-    services: selectedServices,
-    date: selectedDate,
-    time: selectedTime
-  });
+  logger.info('🎯 Current booking state:', undefined, 'LegacyConsole');
 
   return (
     <div className="min-h-screen bg-dubai-black text-white p-6 pb-24">
@@ -210,7 +198,7 @@ const BookingPage: React.FC = () => {
               onServiceToggle={handleServiceSelection}
               onNext={checkAuthAndProceed}
               onBack={() => {
-                console.log('📍 BookingPage: Navigating back to barbers');
+                logger.info('📍 BookingPage: Navigating back to barbers', undefined, 'BookingPage');
                 navigate('/barbers');
               }}
             />
@@ -234,6 +222,8 @@ const BookingPage: React.FC = () => {
               services={services}
               onBack={handlePreviousStep}
               onConfirm={handleConfirmBooking}
+              isRewardBooking={isRewardBooking}
+              pointsToRedeem={pointsToRedeem}
             />
           )}
         </div>

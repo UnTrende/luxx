@@ -3,6 +3,7 @@ import { Product } from '../types';
 import { ShoppingBag } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
+import { logger } from '../src/lib/logger';
 
 const ProductsPage: React.FC = () => {
   const navigate = useNavigate();
@@ -15,28 +16,28 @@ const ProductsPage: React.FC = () => {
       try {
         setIsLoading(true);
         setError(null);
-        console.log('🛍️ Fetching products...');
+        logger.info('🛍️ Fetching products...', undefined, 'ProductsPage');
         const fetchedProducts = await api.getProducts();
-        console.log('✅ Products fetched:', fetchedProducts.length, 'products');
+        logger.info('✅ Products fetched:', fetchedProducts.length, 'products', 'ProductsPage');
 
         // Verify data normalization
         if (fetchedProducts.length > 0) {
           const firstProduct = fetchedProducts[0];
-          console.log('📦 Sample product (full):', JSON.stringify(firstProduct, null, 2));
-          console.log('📦 Sample product (summary):', {
-            name: firstProduct.name,
-            stock: firstProduct.stock,
-            stockType: typeof firstProduct.stock,
-            price: firstProduct.price,
-            priceType: typeof firstProduct.price,
-            imageUrl: firstProduct.imageUrl,
-            imageUrlLength: firstProduct.imageUrl?.length || 0
-          });
+          logger.info('📦 Sample product (full):', JSON.stringify(firstProduct, null, 2, 'ProductsPage'));
+          logger.debug('Sample product summary', {
+      name: firstProduct.name,
+      stock: firstProduct.stock,
+      stockType: typeof firstProduct.stock,
+      price: firstProduct.price,
+      priceType: typeof firstProduct.price,
+      imageUrl: firstProduct.imageUrl,
+      imageUrlLength: firstProduct.imageUrl?.length || 0
+    }, 'ProductsPage');
         }
 
         setProducts(fetchedProducts);
       } catch (err) {
-        console.error('❌ Error fetching products:', err);
+        logger.error('❌ Error fetching products:', err, 'ProductsPage');
         setError('Failed to load products. Please try again later.');
       } finally {
         setIsLoading(false);
@@ -103,10 +104,13 @@ const ProductsPage: React.FC = () => {
                     onClick={(e) => {
                       e.stopPropagation();
                       if (product.stock && product.stock > 0) {
-                        console.log('✅ Adding to cart:', product.name, '(Stock:', product.stock, ')');
+                        logger.info('Adding to cart', { 
+                          productName: product.name, 
+                          stock: product.stock 
+                        }, 'ProductsPage');
                         navigate(`/product-order/${product.id}`);
                       } else {
-                        console.log('❌ Out of stock:', product.name);
+                        logger.info('❌ Out of stock:', product.name, 'ProductsPage');
                       }
                     }}
                   >

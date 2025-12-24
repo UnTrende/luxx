@@ -23,77 +23,65 @@ serve(async (req) => {
 
     const { shopName, allowSignups, siteLogo, heroImages } = await req.json();
 
-    console.log('⚙️ Updating site settings:', { shopName, allowSignups });
+    console.log('⚙️ Updating site settings:', { shopName, allowSignups, siteLogo, heroImages }, 'index');
 
-    // Update shop name if provided
+    // Prepare update data
+    const updateData: any = {
+      updated_at: new Date().toISOString()
+    };
+
     if (shopName !== undefined) {
-      const { error: nameError } = await supabaseClient
-        .from('site_settings')
-        .upsert({ 
-          key: 'shop_name', 
-          value: shopName,
-          updated_at: new Date().toISOString()
-        }, { 
-          onConflict: 'key' 
-        });
-
-      if (nameError) throw nameError;
+      updateData.site_name = shopName;
     }
 
-    // Update allow signups if provided
     if (allowSignups !== undefined) {
-      const { error: signupError } = await supabaseClient
-        .from('site_settings')
-        .upsert({ 
-          key: 'allow_signups', 
-          value: allowSignups,
-          updated_at: new Date().toISOString()
-        }, { 
-          onConflict: 'key' 
-        });
-
-      if (signupError) throw signupError;
+      updateData.allow_signups = allowSignups;
     }
 
-    // Store site logo and hero images in settings
     if (siteLogo !== undefined) {
-      const { error: logoError } = await supabaseClient
-        .from('site_settings')
-        .upsert({ 
-          key: 'site_logo', 
-          value: siteLogo,
-          updated_at: new Date().toISOString()
-        }, { 
-          onConflict: 'key' 
-        });
-
-      if (logoError) throw logoError;
+      updateData.site_logo = siteLogo;
     }
 
     if (heroImages !== undefined) {
-      const { error: heroError } = await supabaseClient
-        .from('site_settings')
-        .upsert({ 
-          key: 'hero_images', 
-          value: heroImages,
-          updated_at: new Date().toISOString()
-        }, { 
-          onConflict: 'key' 
-        });
-
-      if (heroError) throw heroError;
+      updateData.hero_images = heroImages;
     }
+
+    console.log('⚙️ Update data prepared:', updateData, 'index');
+
+    // Update settings in the correct table (settings table with columns)
+    const { data, error: updateError } = await supabaseClient
+      .from('settings')
+      .update(updateData)
+      .eq('id', 'site_settings')
+      .select();
+
+    console.log('⚙️ Update result:', { data, error: updateError }, 'index');
+
+    if (updateError) {
+      console.error('⚙️ Update error:', updateError, 'index');
+      throw updateError;
+    }
+
+    // Verify the update by fetching the data back
+    const { data: verifyData, error: verifyError } = await supabaseClient
+      .from('settings')
+      .select('hero_images')
+      .eq('id', 'site_settings')
+      .single();
+
+    console.log('⚙️ Verification data:', { verifyData, verifyError }, 'index');
 
     return new Response(
       JSON.stringify({ 
         success: true,
-        message: 'Settings updated successfully in database'
+        message: 'Settings updated successfully in database',
+        verification: { data: verifyData, error: verifyError }
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error) {
-    console.error('Function error:', error);
+    console.error('Function error:', error, 'index');
     return new Response(
       JSON.stringify({ error: error.message }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

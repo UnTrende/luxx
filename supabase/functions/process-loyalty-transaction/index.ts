@@ -55,7 +55,7 @@ serve(async (req) => {
     }
 
     // Get base points from service
-    let basePoints = service.loyalty_points || 0;
+    let basePoints = service.loyalty_points_bronze || service.loyalty_points_silver || service.loyalty_points_gold || 0 || 0;
 
     // Determine bonus multiplier based on user's tier
     let multiplier = 1.0;

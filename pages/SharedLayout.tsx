@@ -4,6 +4,7 @@ import Header from '../components/Header';
 import Footer from '../components/Footer';
 import { requestNotificationPermission } from '../services/notificationService';
 import { useAuth } from '../contexts/AuthContext';
+import { logger } from '../src/lib/logger';
 
 const useScopedAuthRedirect = () => {
   const { user, isLoading } = useAuth();
@@ -14,21 +15,12 @@ const useScopedAuthRedirect = () => {
   useEffect(() => {
     // Don't run redirect logic while auth state is loading
     if (isLoading) {
-      console.log('⏳ useScopedAuthRedirect: Auth state loading, skipping redirect check');
+      logger.info('⏳ useScopedAuthRedirect: Auth state loading, skipping redirect check', undefined, 'SharedLayout');
       return;
     }
     
     // Comprehensive logging for debugging
-    console.log('📍 NAVIGATION DEBUG: useScopedAuthRedirect triggered', {
-      location: location,
-      pathname: location.pathname,
-      hash: location.hash,
-      fullPath: location.pathname + location.hash,
-      userExists: !!user,
-      userRole: user?.role,
-      isLoading,
-      didRunCurrent: didRun.current
-    });
+    logger.info('📍 NAVIGATION DEBUG: useScopedAuthRedirect triggered', undefined, 'LegacyConsole');
 
     // For HashRouter, we need to check the hash portion of the URL
     const fullPath = location.pathname + location.hash;
@@ -38,29 +30,23 @@ const useScopedAuthRedirect = () => {
     const isBarberRoute = fullPath.startsWith('/barber-admin') || fullPath.startsWith('/#/barber-admin');
     const isLoginRoute = fullPath === '/login' || fullPath === '/#/login';
     
-    console.log('🔄 useScopedAuthRedirect: Conditions', {
-      fullPath,
-      isAdminRoute,
-      isBarberRoute,
-      isLoginRoute,
-      userRole: user?.role
-    });
+    logger.info('🔄 useScopedAuthRedirect: Conditions', undefined, 'LegacyConsole');
 
     // Handle admin route access
     if (isAdminRoute) {
       if (!user) {
         // Not logged in, redirect to login
-        console.log('🚨 useScopedAuthRedirect: Redirecting to login (not authenticated)');
+        logger.info('🚨 useScopedAuthRedirect: Redirecting to login (not authenticated)', undefined, 'SharedLayout');
         navigate('/login', { replace: true });
         return;
       } else if (user.role !== 'admin') {
         // Logged in but not admin, redirect to home
-        console.log('🚨 useScopedAuthRedirect: Redirecting to home (not admin)');
+        logger.info('🚨 useScopedAuthRedirect: Redirecting to home (not admin)', undefined, 'SharedLayout');
         navigate('/', { replace: true });
         return;
       } else {
         // Admin user, allow access
-        console.log('✅ useScopedAuthRedirect: Admin access granted');
+        logger.info('✅ useScopedAuthRedirect: Admin access granted', undefined, 'SharedLayout');
         return;
       }
     }
@@ -69,17 +55,17 @@ const useScopedAuthRedirect = () => {
     if (isBarberRoute) {
       if (!user) {
         // Not logged in, redirect to login
-        console.log('🚨 useScopedAuthRedirect: Redirecting to login (not authenticated)');
+        logger.info('🚨 useScopedAuthRedirect: Redirecting to login (not authenticated)', undefined, 'SharedLayout');
         navigate('/login', { replace: true });
         return;
       } else if (user.role !== 'barber') {
         // Logged in but not barber, redirect to home
-        console.log('🚨 useScopedAuthRedirect: Redirecting to home (not barber)');
+        logger.info('🚨 useScopedAuthRedirect: Redirecting to home (not barber)', undefined, 'SharedLayout');
         navigate('/', { replace: true });
         return;
       } else {
         // Barber user, allow access
-        console.log('✅ useScopedAuthRedirect: Barber access granted');
+        logger.info('✅ useScopedAuthRedirect: Barber access granted', undefined, 'SharedLayout');
         return;
       }
     }
@@ -88,16 +74,16 @@ const useScopedAuthRedirect = () => {
     if (isLoginRoute && user) {
       // Redirect authenticated users to appropriate dashboard
       if (user.role === 'admin') {
-        console.log('🚨 useScopedAuthRedirect: Redirecting admin from login to admin dashboard');
+        logger.info('🚨 useScopedAuthRedirect: Redirecting admin from login to admin dashboard', undefined, 'SharedLayout');
         navigate('/admin', { replace: true });
         return;
       } else if (user.role === 'barber') {
-        console.log('🚨 useScopedAuthRedirect: Redirecting barber from login to barber dashboard');
+        logger.info('🚨 useScopedAuthRedirect: Redirecting barber from login to barber dashboard', undefined, 'SharedLayout');
         navigate('/barber-admin', { replace: true });
         return;
       } else {
         // Regular customer, redirect to bookings
-        console.log('🚨 useScopedAuthRedirect: Redirecting customer from login to bookings');
+        logger.info('🚨 useScopedAuthRedirect: Redirecting customer from login to bookings', undefined, 'SharedLayout');
         navigate('/my-bookings', { replace: true });
         return;
       }
@@ -106,7 +92,7 @@ const useScopedAuthRedirect = () => {
     // TEMPORARILY DISABLED - INFINITE LOOP FIX
     const isHomePage = fullPath === '/' || fullPath === '/#' || fullPath === '/#/';
     if (user && user.role === 'admin' && isHomePage && !isAdminRoute) {
-      console.log('🚨 LOOP PREVENTION: Would redirect admin but disabled to stop infinite loop');
+      logger.info('🚨 LOOP PREVENTION: Would redirect admin but disabled to stop infinite loop', undefined, 'SharedLayout');
       // navigate('/admin', { replace: true });
       // return;
     }
@@ -114,12 +100,12 @@ const useScopedAuthRedirect = () => {
     // Handle customer redirects to my-bookings
     const isLanding = fullPath === '/' || fullPath === '/#' || fullPath === '/#/';
     if (user && user.role === 'customer' && isLanding) {
-      console.log('🚨 useScopedAuthRedirect: Redirecting customer to my-bookings');
+      logger.info('🚨 useScopedAuthRedirect: Redirecting customer to my-bookings', undefined, 'SharedLayout');
       navigate('/my-bookings', { replace: true });
       return;
     }
     
-    console.log('✅ useScopedAuthRedirect: No redirect needed');
+    logger.info('✅ useScopedAuthRedirect: No redirect needed', undefined, 'SharedLayout');
   }, [user, isLoading, location, navigate]);
 };;
 

@@ -61,7 +61,7 @@ serve(async (req) => {
         if (barbersError) throw barbersError;
 
         // 3. Helper to calc revenue
-        const calculateRevenue = (orders: any[], bookings: any[]) => {
+        const calculateRevenue = (orders: unknown[], bookings: unknown[]) => {
             let rev = 0;
             orders?.forEach(o => {
                 const price = o.products?.price || 0;
@@ -81,7 +81,7 @@ serve(async (req) => {
         // Based on types.ts it is `totalPrice`.
         // Let's be safe.
 
-        const safeCalcRev = (orders: any[], bookings: any[]) => {
+        const safeCalcRev = (orders: unknown[], bookings: unknown[]) => {
             let rev = 0;
             orders?.forEach(o => rev += (Number(o.products?.price || 0) * Number(o.quantity || 1)));
             bookings?.forEach(b => rev += Number(b.totalPrice || b.totalprice || 0));
@@ -119,7 +119,7 @@ serve(async (req) => {
 
         // 6. Top Services (from 30d data)
         const serviceCounts: Record<string, number> = {};
-        monthBookings?.forEach((b: any) => {
+        monthBookings?.forEach((b: unknown) => {
             // Handle service_ids which might be string[] or JSON
             const ids = b.serviceIds || b.service_ids; // Handle casing
             if (ids && Array.isArray(ids)) {

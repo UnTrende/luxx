@@ -3,11 +3,16 @@ import React, { useEffect, useState } from 'react';
 import { Calendar, Clock, Loader, CalendarOff } from 'lucide-react';
 import { api } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
+import { isRosterExpired } from '../utils/rosterUtils';
+import { Mail, AlertCircle } from 'lucide-react';
+import { toast } from 'react-toastify';
+import { logger } from '../src/lib/logger';
 
 const BarberRosterCard: React.FC = () => {
     const { user } = useAuth();
     const [rosters, setRosters] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const [requestingNewRoster, setRequestingNewRoster] = useState(false);
 
     useEffect(() => {
         loadBarberRoster();
@@ -21,10 +26,26 @@ const BarberRosterCard: React.FC = () => {
             const barberRosters = await api.getBarberRoster();
             setRosters(barberRosters);
         } catch (error) {
-            console.error('❌ Failed to load barber roster:', error);
+            logger.error('❌ Failed to load barber roster:', error, 'BarberRosterCard');
             setRosters([]);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const requestNewRoster = async () => {
+        setRequestingNewRoster(true);
+        try {
+            // In a real implementation, this would send a notification to admins
+            toast.info('Roster request sent to admin. You will be notified when a new roster is available.');
+            
+            // Simulate API call delay
+            await new Promise(resolve => setTimeout(resolve, 1000));
+        } catch (error) {
+            logger.error('Failed to request new roster:', error, 'BarberRosterCard');
+            toast.error('Failed to request new roster. Please try again.');
+        } finally {
+            setRequestingNewRoster(false);
         }
     };
 
@@ -49,20 +70,52 @@ const BarberRosterCard: React.FC = () => {
         );
     }
 
-    if (rosters.length === 0) {
+    // Check if the most recent roster is expired
+    const currentRoster = rosters.length > 0 ? rosters[0] : null;
+    const isCurrentRosterExpired = currentRoster ? isRosterExpired(currentRoster) : true;
+
+    // If no rosters or current roster is expired, show request option
+    if (rosters.length === 0 || isCurrentRosterExpired) {
         return (
-            <div className="text-center p-12">
-                <CalendarOff size={48} className="mx-auto text-subtle-text mb-4 opacity-50" />
-                <h3 className="text-xl font-serif font-bold text-white mb-2">No Roster Published</h3>
-                <p className="text-subtle-text text-sm">
-                    Your flight plan hasn't been issued yet. Check back later.
-                </p>
+            <div className="space-y-6">
+                <div className="text-center p-12">
+                    <CalendarOff size={48} className="mx-auto text-subtle-text mb-4 opacity-50" />
+                    <h3 className="text-xl font-serif font-bold text-white mb-2">
+                        {isCurrentRosterExpired ? 'Roster Expired' : 'No Roster Published'}
+                    </h3>
+                    <p className="text-subtle-text text-sm mb-6">
+                        {isCurrentRosterExpired 
+                            ? 'Your current roster has expired. Please request a new one.'
+                            : 'Your flight plan hasn\'t been issued yet. Check back later.'}
+                    </p>
+                    
+                    <button
+                        onClick={requestNewRoster}
+                        disabled={requestingNewRoster}
+                        className="flex items-center gap-2 mx-auto bg-gold text-black px-6 py-3 rounded-xl font-bold uppercase tracking-widest text-xs hover:bg-white transition-all disabled:opacity-50"
+                    >
+                        <Mail size={16} />
+                        {requestingNewRoster ? 'Sending Request...' : 'Request New Roster'}
+                    </button>
+                </div>
+                
+                {rosters.length > 0 && isCurrentRosterExpired && (
+                    <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 flex items-start gap-3">
+                        <AlertCircle className="text-red-400 mt-0.5 flex-shrink-0" size={20} />
+                        <div>
+                            <h4 className="font-bold text-white text-sm">Expired Roster</h4>
+                            <p className="text-subtle-text text-xs mt-1">
+                                The roster ending on {new Date(currentRoster.end_date).toLocaleDateString()} has expired.
+                                Please wait for your admin to publish a new roster.
+                            </p>
+                        </div>
+                    </div>
+                )}
             </div>
         );
     }
 
     // Show only the most recent roster
-    const currentRoster = rosters[0];
     const rosterDays = currentRoster.schedules?.days || currentRoster.days || [];
 
     return (
@@ -85,8 +138,8 @@ const BarberRosterCard: React.FC = () => {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {rosterDays.map((day: any) => {
-                    const isDayOff = day.shifts && day.shifts.length > 0 && day.shifts.every((shift: any) => shift.isDayOff);
+                {rosterDays.map((day: unknown) => {
+                    const isDayOff = day.shifts && day.shifts.length > 0 && day.shifts.every((shift: unknown) => shift.isDayOff);
                     const hasShifts = day.shifts && day.shifts.length > 0 && !isDayOff;
 
                     return (

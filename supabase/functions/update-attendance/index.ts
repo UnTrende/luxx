@@ -7,39 +7,39 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { authenticateUser } from '../_shared/auth.ts';
 
 serve(async (req) => {
-  console.log('[Edge Function] update-attendance called');
+  console.log('[Edge Function] update-attendance called', undefined, 'index');
   
   if (req.method === 'OPTIONS') {
-    console.log('[Edge Function] Handling OPTIONS request');
+    console.log('[Edge Function] Handling OPTIONS request', undefined, 'index');
     return new Response('ok', { headers: corsHeaders });
   }
 
   try {
     // Log the request for debugging
-    console.log('[Edge Function] Request headers:', Object.fromEntries(req.headers));
-    console.log('[Edge Function] Authorization header:', req.headers.get('Authorization'));
-    console.log('[Edge Function] Request method:', req.method);
+    console.log('[Edge Function] Request headers:', Object.fromEntries(req.headers, 'index'));
+    console.log('[Edge Function] Authorization header:', req.headers.get('Authorization', 'index'));
+    console.log('[Edge Function] Request method:', req.method, 'index');
     
     // Get the request data
     let requestData;
     try {
       requestData = await req.json();
-      console.log('[Edge Function] Request data:', requestData);
+      console.log('[Edge Function] Request data:', requestData, 'index');
     } catch (parseError) {
-      console.error('[Edge Function] Failed to parse request body:', parseError);
+      console.error('[Edge Function] Failed to parse request body:', parseError, 'index');
       throw new Error("Invalid request body format");
     }
     
     const { action, date } = requestData;
-    console.log('[Edge Function] Parsed action:', action, 'date:', date);
+    console.log('[Edge Function] Parsed action:', action, 'date:', date, 'index');
     // action: 'clock-in' | 'clock-out' | 'start-break' | 'end-break' | 'mark-present' | 'mark-absent'
 
     // 1. Authenticate user
     const user = await authenticateUser(req);
-    console.log('[Edge Function] User authenticated successfully');
+    console.log('[Edge Function] User authenticated successfully', undefined, 'index');
 
     // 2. Get the barber ID from the barbers table using the user ID
-    console.log('[Edge Function] Looking up barber ID for user ID:', user.id);
+    console.log('[Edge Function] Looking up barber ID for user ID:', user.id, 'index');
     const { data: barber, error: barberError } = await supabaseAdmin
       .from('barbers')
       .select('id, name')
@@ -47,30 +47,30 @@ serve(async (req) => {
       .single();
       
     if (barberError) {
-      console.error('[Edge Function] Error looking up barber:', barberError);
+      console.error('[Edge Function] Error looking up barber:', barberError, 'index');
       throw new Error(`Barber not found for user ID: ${user.id}`);
     }
     
     if (!barber) {
-      console.error('[Edge Function] No barber found for user ID:', user.id);
+      console.error('[Edge Function] No barber found for user ID:', user.id, 'index');
       throw new Error(`Barber not found for user ID: ${user.id}`);
     }
     
-    console.log('[Edge Function] Found barber:', barber);
+    console.log('[Edge Function] Found barber:', barber, 'index');
     const barberId = barber.id;
     const barberName = barber.name;
 
     const today = date || new Date().toISOString().split('T')[0];
-    console.log('[Edge Function] Today date:', today);
+    console.log('[Edge Function] Today date:', today, 'index');
 
     // For backward compatibility with the old system
     if (action === 'mark-present' || action === 'mark-absent') {
-      console.log('[Edge Function] Handling backward compatibility action:', action);
+      console.log('[Edge Function] Handling backward compatibility action:', action, 'index');
       const status = action === 'mark-present' ? 'Present' : 'Absent';
-      console.log('[Edge Function] Status:', status);
+      console.log('[Edge Function] Status:', status, 'index');
       
       // Check if attendance record exists
-      console.log('[Edge Function] Checking for existing attendance record for barber:', barberId, 'date:', today);
+      console.log('[Edge Function] Checking for existing attendance record for barber:', barberId, 'date:', today, 'index');
       const { data: existing } = await supabaseAdmin
         .from('attendance')
         .select('id')
@@ -78,10 +78,10 @@ serve(async (req) => {
         .eq('date', today)
         .single();
 
-      console.log('[Edge Function] Existing record:', existing);
+      console.log('[Edge Function] Existing record:', existing, 'index');
 
       if (existing) {
-        console.log('[Edge Function] Updating existing record');
+        console.log('[Edge Function] Updating existing record', undefined, 'index');
         // Update existing record
         const { data, error } = await supabaseAdmin
           .from('attendance')
@@ -93,11 +93,11 @@ serve(async (req) => {
           .single();
 
         if (error) {
-          console.error('[Edge Function] Update error:', error);
+          console.error('[Edge Function] Update error:', error, 'index');
           throw error;
         }
         
-        console.log('[Edge Function] Update successful:', data);
+        console.log('[Edge Function] Update successful:', data, 'index');
         return new Response(JSON.stringify({ 
           success: true, 
           message: `Attendance updated to ${status}`,
@@ -107,13 +107,12 @@ serve(async (req) => {
           status: 200,
         });
       } else {
-        console.log('[Edge Function] Creating new record');
+        console.log('[Edge Function] Creating new record', undefined, 'index');
         // Create new record
         const { data, error } = await supabaseAdmin
           .from('attendance')
           .insert({ 
             barber_id: barberId,
-            barber_name: barberName,
             date: today,
             status: status
           })
@@ -121,11 +120,11 @@ serve(async (req) => {
           .single();
 
         if (error) {
-          console.error('[Edge Function] Insert error:', error);
+          console.error('[Edge Function] Insert error:', error, 'index');
           throw error;
         }
         
-        console.log('[Edge Function] Insert successful:', data);
+        console.log('[Edge Function] Insert successful:', data, 'index');
         return new Response(JSON.stringify({ 
           success: true, 
           message: `Attendance record created and set to ${status}`,
@@ -138,7 +137,7 @@ serve(async (req) => {
     }
 
     // Check if attendance record exists
-    console.log('[Edge Function] Checking for existing attendance record for barber:', barberId, 'date:', today);
+    console.log('[Edge Function] Checking for existing attendance record for barber:', barberId, 'date:', today, 'index');
     const { data: existing } = await supabaseAdmin
       .from('attendance')
       .select('*')
@@ -146,15 +145,15 @@ serve(async (req) => {
       .eq('date', today)
       .single();
 
-    console.log('[Edge Function] Existing record:', existing);
+    console.log('[Edge Function] Existing record:', existing, 'index');
 
     const now = new Date().toISOString();
-    console.log('[Edge Function] Current time:', now);
+    console.log('[Edge Function] Current time:', now, 'index');
 
     if (action === 'clock-in') {
-      console.log('[Edge Function] Handling clock-in action');
+      console.log('[Edge Function] Handling clock-in action', undefined, 'index');
       if (existing && (existing.status === 'clocked-in' || existing.status === 'on-break')) {
-        console.log('[Edge Function] Already clocked in');
+        console.log('[Edge Function] Already clocked in', undefined, 'index');
         return new Response(JSON.stringify({ 
           success: false, 
           message: 'Already clocked in today'
@@ -165,7 +164,7 @@ serve(async (req) => {
       }
 
       if (existing) {
-        console.log('[Edge Function] Updating existing record for clock-in');
+        console.log('[Edge Function] Updating existing record for clock-in', undefined, 'index');
         // Update existing record
         const { data, error } = await supabaseAdmin
           .from('attendance')
@@ -179,11 +178,11 @@ serve(async (req) => {
           .single();
 
         if (error) {
-          console.error('[Edge Function] Update error:', error);
+          console.error('[Edge Function] Update error:', error, 'index');
           throw error;
         }
         
-        console.log('[Edge Function] Update successful:', data);
+        console.log('[Edge Function] Update successful:', data, 'index');
         return new Response(JSON.stringify({ 
           success: true, 
           message: 'Clocked in successfully',
@@ -193,13 +192,12 @@ serve(async (req) => {
           status: 200,
         });
       } else {
-        console.log('[Edge Function] Creating new record for clock-in');
+        console.log('[Edge Function] Creating new record for clock-in', undefined, 'index');
         // Create new record
         const { data, error } = await supabaseAdmin
           .from('attendance')
           .insert({ 
             barber_id: barberId,
-            barber_name: barberName,
             date: today,
             clock_in: now,
             status: 'clocked-in',
@@ -209,11 +207,11 @@ serve(async (req) => {
           .single();
 
         if (error) {
-          console.error('[Edge Function] Insert error:', error);
+          console.error('[Edge Function] Insert error:', error, 'index');
           throw error;
         }
         
-        console.log('[Edge Function] Insert successful:', data);
+        console.log('[Edge Function] Insert successful:', data, 'index');
         return new Response(JSON.stringify({ 
           success: true, 
           message: 'Clocked in successfully',
@@ -226,7 +224,7 @@ serve(async (req) => {
     }
 
     if (!existing) {
-      console.log('[Edge Function] No existing record found');
+      console.log('[Edge Function] No existing record found', undefined, 'index');
       return new Response(JSON.stringify({ 
         success: false, 
         message: 'No clock-in record found'
@@ -237,7 +235,7 @@ serve(async (req) => {
     }
 
     if (action === 'clock-out') {
-      console.log('[Edge Function] Handling clock-out action');
+      console.log('[Edge Function] Handling clock-out action', undefined, 'index');
       const clockIn = new Date(existing.clock_in);
       const clockOut = new Date(now);
       const workingHours = ((clockOut.getTime() - clockIn.getTime()) / (1000 * 60 * 60)).toFixed(2);
@@ -254,11 +252,11 @@ serve(async (req) => {
         .single();
 
       if (error) {
-        console.error('[Edge Function] Update error:', error);
+        console.error('[Edge Function] Update error:', error, 'index');
         throw error;
       }
       
-      console.log('[Edge Function] Update successful:', data);
+      console.log('[Edge Function] Update successful:', data, 'index');
       return new Response(JSON.stringify({ 
         success: true, 
         message: 'Clocked out successfully',
@@ -270,7 +268,7 @@ serve(async (req) => {
     }
 
     if (action === 'start-break') {
-      console.log('[Edge Function] Handling start-break action');
+      console.log('[Edge Function] Handling start-break action', undefined, 'index');
       const { data, error } = await supabaseAdmin
         .from('attendance')
         .update({
@@ -282,11 +280,11 @@ serve(async (req) => {
         .single();
 
       if (error) {
-        console.error('[Edge Function] Update error:', error);
+        console.error('[Edge Function] Update error:', error, 'index');
         throw error;
       }
       
-      console.log('[Edge Function] Update successful:', data);
+      console.log('[Edge Function] Update successful:', data, 'index');
       return new Response(JSON.stringify({ 
         success: true, 
         message: 'Break started successfully',
@@ -298,7 +296,7 @@ serve(async (req) => {
     }
 
     if (action === 'end-break') {
-      console.log('[Edge Function] Handling end-break action');
+      console.log('[Edge Function] Handling end-break action', undefined, 'index');
       const breakStart = new Date(existing.break_start);
       const breakEnd = new Date(now);
       const breakDuration = Math.floor((breakEnd.getTime() - breakStart.getTime()) / (1000 * 60));
@@ -315,11 +313,11 @@ serve(async (req) => {
         .single();
 
       if (error) {
-        console.error('[Edge Function] Update error:', error);
+        console.error('[Edge Function] Update error:', error, 'index');
         throw error;
       }
       
-      console.log('[Edge Function] Update successful:', data);
+      console.log('[Edge Function] Update successful:', data, 'index');
       return new Response(JSON.stringify({ 
         success: true, 
         message: 'Break ended successfully',
@@ -330,7 +328,7 @@ serve(async (req) => {
       });
     }
 
-    console.log('[Edge Function] Invalid action:', action);
+    console.log('[Edge Function] Invalid action:', action, 'index');
     return new Response(JSON.stringify({ 
       success: false, 
       message: 'Invalid action'
@@ -339,7 +337,7 @@ serve(async (req) => {
       status: 400,
     });
   } catch (error) {
-    console.error('[Edge Function] Error in update-attendance function:', error);
+    console.error('[Edge Function] Error in update-attendance function:', error, 'index');
     return new Response(JSON.stringify({ 
       success: false, 
       message: error.message 

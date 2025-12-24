@@ -1,0 +1,39 @@
+/* Print Styles */
+@media print {
+
+    /* Hide everything except receipt */
+    body * {
+        visibility: hidden;
+    }
+
+    .receipt-container,
+    .receipt-container * {
+        visibility: visible;
+    }
+
+    .receipt-container {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        background: white !important;
+        border: none !important;
+        border-radius: 0 !important;
+        box-shadow: none !important;
+    }
+
+    .no-print {
+        display: none !important;
+    }
+
+    /* Optimize for receipt printer (80mm) */
+    @page {
+        size: 80mm auto;
+        margin: 5mm;
+    }
+
+    body {
+        margin: 0;
+        padding: 0;
+    }
+}

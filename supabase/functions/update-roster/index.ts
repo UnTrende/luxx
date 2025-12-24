@@ -56,8 +56,8 @@ serve(async (req) => {
       JSON.stringify({ success: true, data: data?.[0] || null, message: 'Roster updated successfully' }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
-  } catch (error: any) {
-    console.error('update-roster error:', error);
+  } catch (error: Error | unknown) {
+    console.error('update-roster error:', error, 'index');
     return new Response(JSON.stringify({ error: error.message || String(error) }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   }
 });

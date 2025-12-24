@@ -31,8 +31,12 @@ export interface Service {
   price: number; // Default price
   category: string;
   image_url?: string; // Added for public URL
-  image_path?: string; // Added for storage path
-  loyalty_points?: number; // Loyalty points awarded for this service
+  image_path?: string; // Added for storage path // DEPRECATED: Use tier-specific fields instead
+  loyalty_points_silver?: number; // Loyalty points for Silver tier customers
+  loyalty_points_gold?: number; // Loyalty points for Gold tier customers
+  loyalty_points_platinum?: number; // Loyalty points for Platinum tier customers
+  redemption_points?: number; // Points required to redeem this service for free
+  is_redeemable?: boolean; // Whether this service can be redeemed with points
 }
 
 export interface Product {
@@ -49,14 +53,13 @@ export interface Product {
 
 export interface Booking {
   id: string;
-  userId: string | null; // Can be null for guest bookings
-  userName: string;
   barberId: string;
+  userId: string;
   serviceIds: string[];
   date: string;
   timeSlot: string;
   totalPrice: number;
-  status: 'Confirmed' | 'Completed' | 'Canceled' | 'pending' | 'confirmed' | 'completed' | 'cancelled';
+  status: 'pending' | 'confirmed' | 'completed' | 'cancelled';
   reviewLeft: boolean;
   cancelMessage?: string;
   createdAt?: string; // When the booking was created (for "new bookings" metrics)
@@ -134,7 +137,8 @@ export interface SiteSettings {
   allow_signups?: boolean;
   site_logo?: string;
   hero_images?: string[];
-  [key: string]: any; // Allow additional properties
+  tax_rate?: number; // Tax rate percentage for billing system
+  [key: string]: unknown; // Allow additional properties
 }
 
 // New detailed type for API responses
@@ -190,6 +194,62 @@ export interface LoyaltySettings {
   updated_at: string;
 }
 
+// Transaction types for billing system
+export interface ServiceItem {
+  service_id?: string;
+  service_name: string;
+  price: number;
+}
+
+export interface Transaction {
+  id: string;
+  customer_name: string;
+  customer_phone: string;
+  customer_id?: string;
+  customer_type: 'walk-in' | 'booking';
+  services: ServiceItem[];
+  subtotal: number;
+  tax_rate: number;
+  tax_amount: number;
+  total_amount: number;
+  payment_method: 'cash' | 'card' | 'mobile';
+  barber_id?: string;
+  booking_id?: string;
+  receipt_number: string;
+  created_at: string;
+  created_by?: string;
+}
+
+export interface CreateTransactionInput {
+  customerName: string;
+  customerPhone: string;
+  customerId?: string;
+  customerType: 'walk-in' | 'booking';
+  services: ServiceItem[];
+  barberId?: string;
+  bookingId?: string;
+  paymentMethod: 'cash' | 'card' | 'mobile';
+}
+
+export interface TransactionAnalytics {
+  dailyBreakdown: {
+    date: string;
+    bookings: { count: number; revenue: number };
+    walkIns: { count: number; revenue: number };
+    total: { count: number; revenue: number };
+  }[];
+  frequentWalkIns: {
+    customer_name: string;
+    customer_phone: string;
+    visit_count: number;
+    total_spent: number;
+  }[];
+  paymentMethods: {
+    cash: number;
+    card: number;
+    mobile: number;
+  };
+}
 
 
 // API Interface
@@ -208,7 +268,7 @@ export interface Api {
   getAllOrders: () => Promise<OrderWithDetails[]>;
   updateOrderStatus: (orderId: string, newStatus: string) => Promise<{ success: boolean; order: OrderWithDetails }>;
   getAllBookings: () => Promise<Booking[]>;
-  getAllUsers: () => Promise<{ users: any[] }>;
+  getAllUsers: () => Promise<{ users: unknown[] }>;
   getAttendance: (date?: string) => Promise<Attendance[]>;
   updateAttendance: (action: 'clock-in' | 'clock-out' | 'start-break' | 'end-break' | 'mark-present' | 'mark-absent', date?: string) => Promise<{ success: boolean; message: string; attendance?: Attendance }>;
   updateAttendanceStatus: (attendanceId: string, status: 'present' | 'absent' | 'late') => Promise<{ success: boolean; attendance: Attendance }>;
@@ -218,8 +278,8 @@ export interface Api {
   getBarberAttendance: (date?: string) => Promise<Attendance | null>;
 
   // Roster Management
-  getRosters: (weekKey?: string) => Promise<{ rosters: any[] }>;
-  getBarberRosters: () => Promise<{ rosters: any[] }>;
+  getRosters: (weekKey?: string) => Promise<{ rosters: unknown[] }>;
+  getBarberRosters: () => Promise<{ rosters: unknown[] }>;
   createRoster: (name: string, startDate: string, endDate: string, days: any) => Promise<{ roster: any }>;
   updateRoster: (rosterId: string, name: string, startDate: string, endDate: string, days: any) => Promise<{ roster: any }>;
   deleteRoster: (rosterId: string) => Promise<{ success: boolean }>;
@@ -260,7 +320,7 @@ export interface Api {
   // New methods for booking flow
   getBarberServices: (barberId: string) => Promise<Service[]>;
   getAvailableSlots: (barberId: string, date: string, serviceIds?: string[]) => Promise<string[]>;
-
+  isBarberAvailable: (barberId: string, date: string) => Promise<{ available: boolean; reason?: string }>;
   // Notifications
   notifications: {
     getNotifications: () => Promise<AppNotification[]>;
@@ -295,13 +355,13 @@ export interface Api {
     message: string
   }>;
   getBarberIdByUserId: (userId: string) => Promise<string | null>;
-  supabase: any; // Add the supabase client property
+  supabase: unknown; // Add the supabase client property
 
   // Loyalty System
   getLoyaltyStats: () => Promise<LoyaltyStats>;
   getLoyaltyHistory: (limit?: number, offset?: number) => Promise<LoyaltyHistoryEntry[]>;
   updateLoyaltySettings: (settings: Partial<LoyaltySettings>) => Promise<LoyaltySettings>;
-  processLoyaltyTransaction: (bookingId: string, amountPaid: number) => Promise<any>;
+  processLoyaltyTransaction: (bookingId: string, amountPaid: number, serviceId: string) => Promise<any>;
   processPenaltyTransaction: (userId: string, penaltyType: 'late_cancellation' | 'no_show', bookingId?: string, reason?: string) => Promise<any>;
   checkLoyaltyTierUpdate: () => Promise<any>;
 
@@ -309,4 +369,11 @@ export interface Api {
   getAnalyticsOverview: () => Promise<any>;
   getDetailedReports: (reportType: 'retention' | 'peak_times', dateRange?: any) => Promise<any>;
   exportData: (entity: 'bookings' | 'orders' | 'users', format?: 'csv') => Promise<{ csv: string; filename: string }>;
+
+  // Billing & Transactions
+  createTransaction: (data: CreateTransactionInput) => Promise<Transaction>;
+  getBookingsForBilling: () => Promise<BookingWithDetails[]>;
+  getTransactionAnalytics: (filter?: { startDate?: string; endDate?: string; groupBy?: 'day' | 'customer_type' }) => Promise<TransactionAnalytics>;
+  getTransactions: (filter?: { startDate?: string; endDate?: string; customerType?: 'walk-in' | 'booking' }) => Promise<Transaction[]>;
+  exportDailyReport: (date: string, format: 'csv' | 'pdf') => Promise<{ data: string; filename: string }>;
 }

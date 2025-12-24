@@ -1,6 +1,7 @@
 import { isSupabaseConfigured, supabase } from './supabaseClient';
 import { Api, UserProfile, Review, BookingWithDetails, OrderWithDetails, BarberService, Booking, AppNotification, Product, Barber, Service, ProductOrder, Attendance, LoyaltyStats, LoyaltyHistoryEntry, LoyaltySettings } from '../types';
 import { AuthError, Session, SignInWithPasswordCredentials, RealtimeChannel } from '@supabase/supabase-js';
+import { logger } from '../src/lib/logger';
 
 let csrfToken: string | null = null;
 
@@ -10,11 +11,11 @@ export const fetchCSRFToken = async (): Promise<string | null> => {
     // Get the current session token
     const { data: { session } } = await supabase.auth.getSession();
     const token = session?.access_token;
-    
+
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
     const response = await fetch(`${supabaseUrl}/functions/v1/generate-csrf-token`, {
       method: 'POST',
-      headers: { 
+      headers: {
         'Content-Type': 'application/json',
         ...(token && { 'Authorization': `Bearer ${token}` })
       }
@@ -22,13 +23,13 @@ export const fetchCSRFToken = async (): Promise<string | null> => {
     if (response.ok) {
       const data = await response.json();
       csrfToken = data.csrfToken;
-      console.log('🔐 CSRF Token fetched:', csrfToken);
+      logger.info('🔐 CSRF Token fetched:', csrfToken, 'api');
       return csrfToken;
     } else {
-      console.error('Failed to fetch CSRF token. Status:', response.status);
+      logger.error('Failed to fetch CSRF token. Status:', response.status, 'api');
     }
   } catch (e) {
-    console.error('Failed to fetch CSRF token', e);
+    logger.error('Failed to fetch CSRF token', e, 'api');
   }
   return null;
 };
@@ -45,9 +46,12 @@ const normalizeProduct = (product: any): Product => ({
 });
 
 // Helper function to invoke a Supabase Edge Function
-const invoke = async <T>(functionName: string, body?: object): Promise<T> => {
+const invoke = async <T>(
+  functionName: string,
+  body?: Record<string, any>
+): Promise<T> => {
   if (!supabase) {
-    throw new Error("Supabase is not configured. Cannot invoke function.");
+    throw new Error('Supabase client not initialized');
   }
 
   // List of public functions that should work without authentication
@@ -95,7 +99,7 @@ const invoke = async <T>(functionName: string, body?: object): Promise<T> => {
           break;
       }
     } catch (error) {
-      console.log(`Direct database fetch failed for ${functionName}, falling back to Edge Function:`, error);
+      logger.info(`Direct database fetch failed for ${functionName}, falling back to Edge Function:`, error, 'api');
       // Fall through to Edge Function call
     }
   }
@@ -115,41 +119,44 @@ const invoke = async <T>(functionName: string, body?: object): Promise<T> => {
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  // Ensure CSRF Token is present
-  if (!csrfToken) {
-    await fetchCSRFToken();
-  }
-  if (csrfToken) {
-    headers['X-CSRF-Token'] = csrfToken;
+  // Ensure CSRF Token is present for non-public functions
+  if (!isPublicFunction) {
+    if (!csrfToken) {
+      await fetchCSRFToken();
+    }
+    if (csrfToken) {
+      headers['X-CSRF-Token'] = csrfToken;
+    }
   }
 
   // Log the request for debugging
-  console.log(`Invoking function: ${functionName}`, {
-    url: `${functionsUrl}/${functionName}`,
-    headers,
-    body
-  });
+  logger.info('Invoking function: ${functionName}', undefined, 'LegacyConsole');
 
-  const response = await fetch(`${functionsUrl}/${functionName}`, {
+  // Create a timeout promise
+  const timeoutPromise = new Promise((_, reject) =>
+    setTimeout(() => reject(new Error(`Function ${functionName} timed out after 30 seconds`)), 30000)
+  );
+
+  // Create the fetch promise
+  const fetchPromise = fetch(`${functionsUrl}/${functionName}`, {
     method: 'POST',
     headers,
     body: body ? JSON.stringify(body) : undefined,
   });
 
-  console.log(`Function ${functionName} response:`, {
-    status: response.status,
-    statusText: response.statusText,
-    headers: Object.fromEntries(response.headers.entries())
-  });
+  // Race the fetch promise against the timeout
+  const response = await Promise.race([fetchPromise, timeoutPromise]) as Response;
+
+  logger.info(`Function ${functionName} response:`, undefined, 'LegacyConsole');
 
   if (!response.ok) {
     const errorText = await response.text();
-    console.error(`Function ${functionName} failed with status ${response.status}: ${errorText}`);
+    logger.error(`Function ${functionName} failed with status ${response.status}: ${errorText}`, undefined, 'api');
     throw new Error(`Function ${functionName} failed with status ${response.status}: ${errorText}`);
   }
 
   const jsonData = await response.json();
-  console.log(`Function ${functionName} response data:`, jsonData);
+  logger.info(`Function ${functionName} response data:`, jsonData, 'api');
 
   return jsonData as T;
 };
@@ -174,7 +181,7 @@ const realApi = {
           return barber as Barber;
         }
       } catch (e) {
-        console.warn('Direct DB fetch for barber failed, falling back to Edge Function', e);
+        logger.warn('Direct DB fetch for barber failed, falling back to Edge Function', e, 'api');
       }
     }
     // Fallback to Edge Function
@@ -216,14 +223,33 @@ const realApi = {
   getOrderById: (orderId: string): Promise<OrderWithDetails | null> => invoke('get-order-by-id', { orderId }),
 
   // Admin Data Fetching
-  getAllBookings: (): Promise<Booking[]> => invoke('get-all-bookings'),
-  getAllUsers: (): Promise<{ users: any[] }> => invoke('get-all-users'),
+  getAllBookings: async (): Promise<Booking[]> => {
+    const bookings = await invoke<Booking[]>('get-all-bookings');
+    logger.info('📋 getAllBookings received:', bookings?.length, 'bookings', 'api');
+    if (bookings && bookings.length > 0) {
+      logger.info('First booking sample loaded successfully', { count: bookings.length }, 'api');
+    }
+    return bookings;
+  },
+  getAllUsers: (): Promise<{ users: unknown[] }> => invoke<{ users: unknown[] }>('get-all-users').then(response => {
+    // Normalize user data ensuring all required fields are present
+    const normalizedUsers = (response.users || []).map(u => ({
+      id: u.id,
+      email: u.email || '',
+      // Handle various potential name fields
+      name: u.name || u.full_name || u.username || (u.raw_user_meta_data?.name) || 'Unknown User',
+      role: u.role || (u.app_metadata?.role) || 'customer',
+      // Preserve other fields
+      ...u
+    }));
+    return { users: normalizedUsers };
+  }),
   getAttendance: async (date?: string): Promise<Attendance[]> => {
     const result = await invoke<{ success: boolean; attendance: Attendance[] }>('get-attendance', { date: date || new Date().toISOString().split('T')[0] });
     return result.attendance;
   },
   getAllOrders: (): Promise<OrderWithDetails[]> => invoke<any[]>('get-all-orders').then((rows) =>
-    (rows || []).map((o: any) => {
+    (rows || []).map((o: unknown) => {
       // Edge Function returns 'products' (singular object from join)
       const product = o.products || {};
       // Edge Function returns 'app_users' (singular object from join)
@@ -282,38 +308,33 @@ const realApi = {
 
   // Roster Management
   createRoster: (name: string, startDate: string, endDate: string, days: any): Promise<{ roster: any }> => {
-    console.log('📡 API createRoster called with:', { name, startDate, endDate, days });
+    logger.info('📡 API createRoster called with:', { name, startDate, endDate, days }, 'api');
 
     // Validate data before sending
     if (!name || !startDate || !endDate || !days) {
-      console.error('❌ Missing required fields in rosterData:', {
-        name: name,
-        startDate: startDate,
-        endDate: endDate,
-        days: days
-      });
+      logger.info('❌ Missing required fields in rosterData:', undefined, 'LegacyConsole');
       throw new Error('Missing required roster fields before API call');
     }
 
-    console.log('📨 Sending to Edge Function with data:', { name, startDate, endDate, days });
+    logger.info('📨 Sending to Edge Function with data:', { name, startDate, endDate, days }, 'api');
     return invoke('create-roster', { name, startDate, endDate, days });
   },
 
-  getRosters: async (weekKey?: string): Promise<{ rosters: any[] }> => {
+  getRosters: async (weekKey?: string): Promise<{ rosters: unknown[] }> => {
     try {
       const params = weekKey ? { weekKey } : {};
-      const result = await invoke<{ success: boolean; data: any[] }>('get-rosters', params);
+      const result = await invoke<{ success: boolean; data: Record<string, unknown>[] }>('get-rosters', params);
       const rawData = result.data || [];
 
-      console.log('📊 Raw roster data from backend:', JSON.stringify(rawData, null, 2));
+      logger.info('📊 Raw roster data from backend:', JSON.stringify(rawData, null, 2, 'api'));
 
       // Transform data to match frontend expectations (NEW schema: name, start_date, end_date, days)
-      const transformedRosters = rawData.map((r: any) => {
-        const shifts: any[] = [];
+      const transformedRosters = rawData.map((r: unknown) => {
+        const shifts: unknown[] = [];
         if (r.days) {
-          r.days.forEach((day: any) => {
+          r.days.forEach((day: unknown) => {
             if (day.shifts) {
-              day.shifts.forEach((shift: any) => {
+              day.shifts.forEach((shift: unknown) => {
                 if (!shift.isDayOff) {
                   shifts.push({
                     barberId: shift.barberId,
@@ -334,10 +355,10 @@ const realApi = {
         };
       });
 
-      console.log('✨ Transformed roster data:', JSON.stringify(transformedRosters, null, 2));
+      logger.info('✨ Transformed roster data:', JSON.stringify(transformedRosters, null, 2, 'api'));
       return { rosters: transformedRosters };
     } catch (error) {
-      console.error('Error fetching rosters:', error);
+      logger.error('Error fetching rosters:', error, 'api');
       return { rosters: [] };
     }
   },
@@ -348,34 +369,28 @@ const realApi = {
 
   // Add updateRoster method
   updateRoster: (rosterId: string, name: string, startDate: string, endDate: string, days: any): Promise<{ roster: any }> => {
-    console.log('📡 API updateRoster called with:', { rosterId, name, startDate, endDate, days });
+    logger.info('📡 API updateRoster called with:', { rosterId, name, startDate, endDate, days }, 'api');
 
     // Validate data before sending
     if (!rosterId || !name || !startDate || !endDate || !days) {
-      console.error('❌ Missing required fields in rosterData:', {
-        rosterId: rosterId,
-        name: name,
-        startDate: startDate,
-        endDate: endDate,
-        days: days
-      });
+      logger.info('❌ Missing required fields in rosterData:', undefined, 'LegacyConsole');
       throw new Error('Missing required roster fields before API call');
     }
 
-    console.log('📨 Sending to Edge Function with data:', { rosterId, name, startDate, endDate, days });
+    logger.info('📨 Sending to Edge Function with data:', { rosterId, name, startDate, endDate, days }, 'api');
     return invoke('update-roster', { rosterId, name, startDate, endDate, days });
   },
 
   // Add getBarberRoster method
   getBarberRoster: (barberId?: string): Promise<any[]> => {
     const params = barberId ? { barberId } : {};
-    console.log('Calling getBarberRoster with params:', params);
+    logger.info('Calling getBarberRoster with params:', params, 'api');
     return invoke('get-barber-roster', params);
   },
 
   // Add getBarberRosters method (for backward compatibility)
-  getBarberRosters: (): Promise<{ rosters: any[] }> => {
-    console.log('Calling getBarberRosters');
+  getBarberRosters: (): Promise<{ rosters: unknown[] }> => {
+    logger.info('Calling getBarberRosters', undefined, 'api');
     return invoke('get-barber-roster', {});
   },
 
@@ -394,11 +409,12 @@ const realApi = {
     try {
       // First check if Supabase is configured
       if (!isSupabaseConfigured) {
-        console.log('🔧 Supabase not configured, using mock settings');
+        logger.info('🔧 Supabase not configured, using mock settings', undefined, 'api');
         return {
           shop_name: 'LuxeCut Barber Shop',
           allow_signups: true,
-          site_logo: 'https://picsum.photos/seed/logo/300/300'
+          site_logo: 'https://picsum.photos/seed/logo/300/300',
+          hero_images: []
         };
       }
 
@@ -408,19 +424,26 @@ const realApi = {
       if (supabase) {
         try {
           const { data: settings, error } = await supabase
-            .from('site_settings')
-            .select('*');
+            .from('settings')
+            .select('*')
+            .eq('id', 'site_settings')
+            .single();
 
           if (!error && settings) {
-            const settingsObj: any = {};
-            settings.forEach(setting => {
-              settingsObj[setting.key] = setting.value;
-            });
-            console.log('🔧 Settings loaded from database');
+            logger.info('🔧 Raw settings from database:', settings, 'api');
+            // Transform to match expected format
+            const settingsObj: any = {
+              shop_name: settings.site_name,
+              allow_signups: settings.allow_signups,
+              site_logo: settings.site_logo,
+              hero_images: settings.hero_images || []
+            };
+
+            logger.info('🔧 Settings loaded from database:', settingsObj, 'api');
             return settingsObj;
           }
         } catch (dbError) {
-          console.log('Direct DB access failed, trying Edge Function:', dbError);
+          logger.info('Direct DB access failed, trying Edge Function:', dbError, 'api');
         }
       }
 
@@ -434,50 +457,78 @@ const realApi = {
       });
 
       if (!response.ok) {
-        console.warn(`Settings API returned ${response.status}: ${response.statusText}`);
+        logger.warn(`Settings API returned ${response.status}: ${response.statusText}`, undefined, 'api');
         throw new Error(`HTTP ${response.status}`);
       }
 
       const result = await response.json();
+      logger.info('🔧 Raw response from Edge Function:', result, 'api');
 
       // Handle both direct settings and wrapped response
       if (result.success && result.data) {
-        console.log('🔧 Settings loaded successfully from API');
+        logger.info('🔧 Settings loaded successfully from API:', result.data, 'api');
         return result.data;
       }
 
+      logger.info('🔧 Settings loaded from API (unwrapped):', result, 'api');
       return result;
     } catch (error) {
       // Return default settings to prevent app crash
-      console.warn('Failed to fetch settings, using defaults:', error);
+      logger.warn('Failed to fetch settings, using defaults:', error, 'api');
       const defaultSettings = {
         shop_name: 'LuxeCut Barber Shop',
         allow_signups: true,
-        site_logo: 'https://picsum.photos/seed/logo/300/300'
+        site_logo: 'https://picsum.photos/seed/logo/300/300',
+        hero_images: []
       };
       return defaultSettings;
     }
   },
-  updateSettings: async (settings: any) => {
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-    const { data: { session } } = await supabase!.auth.getSession();
-    const userToken = session?.access_token;
+  updateSettings: async (settingsData: any): Promise<any> => {
+    try {
+      if (!isSupabaseConfigured) {
+        logger.info('🔧 Supabase not configured, skipping settings update', undefined, 'api');
+        return { success: true };
+      }
 
-    const response = await fetch(`${supabaseUrl}/functions/v1/update-settings`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${userToken}`,
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const { data: { session } } = await supabase!.auth.getSession();
+      const userToken = session?.access_token;
+
+      // Ensure CSRF Token is present
+      if (!csrfToken) {
+        await fetchCSRFToken();
+      }
+
+      const headers: HeadersInit = {
         'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(settings),
-    });
+        ...(userToken && { 'Authorization': `Bearer ${userToken}` }),
+        ...(csrfToken && { 'X-CSRF-Token': csrfToken })
+      };
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Function update-settings failed: ${errorText}`);
+      logger.info('🔧 Updating settings with data:', settingsData, 'api');
+
+      const response = await fetch(`${supabaseUrl}/functions/v1/update-settings`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(settingsData),
+      });
+
+      logger.info('🔧 Settings update response:', response.status, response.statusText, 'api');
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        logger.error('🔧 Settings update failed:', errorText, 'api');
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
+      }
+
+      const result = await response.json();
+      logger.info('🔧 Settings update result:', result, 'api');
+      return result;
+    } catch (error) {
+      logger.error('🔧 Settings update error:', error, 'api');
+      throw error;
     }
-
-    return response.json();
   },
 
   uploadSiteImage: async (file: File, bucket: string, path: string) => {
@@ -490,11 +541,19 @@ const realApi = {
     const { data: { session } } = await supabase!.auth.getSession();
     const userToken = session?.access_token;
 
+    // Ensure CSRF Token is present
+    if (!csrfToken) {
+      await fetchCSRFToken();
+    }
+
+    const headers: HeadersInit = {
+      ...(userToken && { 'Authorization': `Bearer ${userToken}` }),
+      ...(csrfToken && { 'X-CSRF-Token': csrfToken })
+    };
+
     const response = await fetch(`${supabaseUrl}/functions/v1/upload-site-image`, {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${userToken}`,
-      },
+      headers,
       body: formData,
     });
 
@@ -516,20 +575,20 @@ const realApi = {
         .single();
 
       if (error) {
-        console.warn('Error fetching barber by user ID:', error);
+        logger.warn('Error fetching barber by user ID:', error, 'api');
         return null;
       }
 
       return barber?.id || null;
     } catch (error) {
-      console.warn('Error in getBarberIdByUserId:', error);
+      logger.warn('Error in getBarberIdByUserId:', error, 'api');
       return null;
     }
   },
 
   // Admin Barber Management
   addBarber: (barberData: { name: string; photo: string; photo_path?: string; experience: number; specialties: string[]; email: string; password: string; }): Promise<Barber> => {
-    console.log("Sending barber data to add-barber function:", barberData);
+    logger.info("Sending barber data to add-barber function:", barberData, 'api');
     return invoke('add-barber', { barberData });
   },
   updateBarber: (barberId: string, barberData: any): Promise<Barber> => {
@@ -549,7 +608,7 @@ const realApi = {
     if (barberData.photo !== undefined) cleanData.photo = barberData.photo; // Add photo field support
     if (barberData.active !== undefined) cleanData.is_active = barberData.active;
 
-    console.log("Sending barber update data to update-barber function:", cleanData);
+    logger.info("Sending barber update data to update-barber function:", cleanData, 'api');
     return invoke('update-barber', cleanData);
   },
   deleteBarber: (barberId: string, userId: string): Promise<{ success: boolean }> => invoke('delete-barber', { barberId, userId }),
@@ -587,7 +646,45 @@ const realApi = {
     return realApi.getServices();
   },
 
+  // Check if a barber is available on a specific date based on roster
+  isBarberAvailable: async (barberId: string, date: string): Promise<{ available: boolean; reason?: string }> => {
+    try {
+      // Ensure CSRF Token is present
+      if (!csrfToken) {
+        await fetchCSRFToken();
+      }
+
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const { data: { session } } = await supabase!.auth.getSession();
+      const userToken = session?.access_token;
+
+      const response = await fetch(`${supabaseUrl}/functions/v1/is-barber-available?barberId=${encodeURIComponent(barberId)}&date=${encodeURIComponent(date)}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${userToken}`,
+          'Content-Type': 'application/json',
+          ...(csrfToken && { 'X-CSRF-Token': csrfToken })
+        },
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Function is-barber-available failed: ${errorText}`);
+      }
+
+      return response.json();
+    } catch (error) {
+      logger.error('Error checking barber availability:', error, 'api');
+      // Default to available if there's an error
+      return { available: true, reason: 'Error checking availability' };
+    }
+  },
   getAvailableSlots: async (barberId: string, date: string, serviceIds?: string[]): Promise<string[]> => {
+    // Ensure CSRF Token is present
+    if (!csrfToken) {
+      await fetchCSRFToken();
+    }
+
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
     const { data: { session } } = await supabase!.auth.getSession();
     const userToken = session?.access_token;
@@ -598,6 +695,7 @@ const realApi = {
         headers: {
           'Authorization': `Bearer ${userToken}`,
           'Content-Type': 'application/json',
+          ...(csrfToken && { 'X-CSRF-Token': csrfToken })
         },
       });
 
@@ -634,18 +732,14 @@ const realApi = {
   // Authentication (using Supabase client-side SDK directly)
   auth: {
     signIn: async (credentials: { email: string; password: string }) => {
-      console.log('🔐 signIn called with:', { email: credentials.email, hasPassword: !!credentials.password });
+      logger.info('🔐 signIn called with:', { email: credentials.email, hasPassword: !!credentials.password }, 'api');
       if (!supabase) {
-        console.warn('🔐 Supabase not configured, returning error');
+        logger.warn('🔐 Supabase not configured, returning error', undefined, 'api');
         return { data: {}, error: new AuthError("Supabase not configured.") };
       }
-      console.log('🔐 Attempting Supabase signIn...');
+      logger.info('🔐 Attempting Supabase signIn...', undefined, 'api');
       const result = await supabase.auth.signInWithPassword(credentials);
-      console.log('🔐 Supabase signIn result:', {
-        success: !result.error,
-        error: result.error?.message,
-        hasUser: !!result.data?.user
-      });
+      logger.info('🔐 Supabase signIn result:', undefined, 'LegacyConsole');
       return result;
     },
     signUp: async (credentials: { email: string; password: string; name: string }) => {
@@ -666,28 +760,28 @@ const realApi = {
       return supabase.auth.signOut();
     },
     getUserProfile: async (): Promise<UserProfile | null> => {
-      console.log('👤 getUserProfile called');
+      logger.info('👤 getUserProfile called', undefined, 'api');
       if (!supabase) {
-        console.log('👤 No supabase client available');
+        logger.info('👤 No supabase client available', undefined, 'api');
         return null;
       }
 
-      console.log('👤 Getting user from Supabase auth...');
+      logger.info('👤 Getting user from Supabase auth...', undefined, 'api');
 
       try {
         // OPTIMIZED: Use getSession() first (instant, reads from localStorage)
         // Only fall back to getUser() (network call) if session doesn't exist
-        console.log('👤 Calling getSession()...');
+        logger.info('👤 Calling getSession()...', undefined, 'api');
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-        console.log('👤 getSession() completed:', { hasSession: !!session, error: sessionError?.message });
+        logger.info('👤 getSession() completed:', { hasSession: !!session, error: sessionError?.message }, 'api');
 
         if (sessionError) {
-          console.warn('👤 Session error, trying getUser():', sessionError);
+          logger.warn('👤 Session error, trying getUser():', sessionError, 'api');
           throw sessionError;
         }
 
         if (!session?.user) {
-          console.log('👤 No session found, trying getUser() as fallback...');
+          logger.info('👤 No session found, trying getUser() as fallback...', undefined, 'api');
 
           // Fallback to getUser() with timeout
           const userPromise = supabase.auth.getUser();
@@ -698,7 +792,7 @@ const realApi = {
           const { data: { user }, error: userError } = await Promise.race([userPromise, timeoutPromise]) as any;
 
           if (userError || !user) {
-            console.log('👤 No authenticated user found');
+            logger.info('👤 No authenticated user found', undefined, 'api');
             return null;
           }
 
@@ -709,17 +803,17 @@ const realApi = {
             role: user.app_metadata?.role || 'customer',
           };
 
-          console.log('👤 Profile created from getUser():', profile);
+          logger.info('👤 Profile created from getUser():', profile, 'api');
           return profile;
         }
 
         // SUCCESS: Got user from session (fast!)
         const user = session.user;
 
-        console.log('👤 DEBUG: User metadata analysis');
-        console.log('👤 user.app_metadata:', user.app_metadata);
-        console.log('👤 user.user_metadata:', user.user_metadata);
-        console.log('👤 Role from app_metadata:', user.app_metadata?.role);
+        logger.info('👤 DEBUG: User metadata analysis', undefined, 'api');
+        logger.info('👤 user.app_metadata:', user.app_metadata, 'api');
+        logger.info('👤 user.user_metadata:', user.user_metadata, 'api');
+        logger.info('👤 Role from app_metadata:', user.app_metadata?.role, 'api');
 
         const profile: UserProfile = {
           id: user.id,
@@ -728,11 +822,11 @@ const realApi = {
           role: user.app_metadata?.role || 'customer',
         };
 
-        console.log('👤 Profile created from session (fast):', profile);
+        logger.info('👤 Profile created from session (fast):', profile, 'api');
         return profile;
-      } catch (error: any) {
-        console.error('👤 Profile fetch failed:', error);
-        console.error('👤 Error stack:', error?.stack);
+      } catch (error: Error | unknown) {
+        logger.error('👤 Profile fetch failed:', error, 'api');
+        logger.error('👤 Error stack:', error?.stack, 'api');
         return null;
       }
     },
@@ -812,17 +906,111 @@ const realApi = {
     return result.settings;
   },
 
-  processLoyaltyTransaction: (bookingId: string, amountPaid: number): Promise<any> => invoke('process-loyalty-transaction', { body: { bookingId, amountPaid } }),
+  processLoyaltyTransaction: (bookingId: string, amountPaid: number, serviceId: string): Promise<any> => invoke('process-loyalty-transaction', { body: { bookingId, amountPaid, serviceId } }),
   processPenaltyTransaction: (userId: string, penaltyType: 'late_cancellation' | 'no_show', bookingId?: string, reason?: string): Promise<any> => invoke('process-penalty-transaction', { userId, penaltyType, bookingId, reason }),
   checkLoyaltyTierUpdate: (): Promise<any> => invoke('check-loyalty-tier-update'),
 
   // Analytics & Export
   getAnalyticsOverview: (): Promise<any> => invoke('get-analytics-overview'),
+
+  // Admin Loyalty Stats
+  getAdminLoyaltyStats: (): Promise<{
+    success: boolean;
+    stats?: {
+      totalMembers: number;
+      activePoints: number;
+      tierDistribution: {
+        Silver: number;
+        Gold: number;
+        Platinum: number;
+      };
+      recentActivity: number;
+      totalPointsIssued?: number;
+      totalPointsRedeemed?: number;
+    };
+    error?: string;
+  }> => invoke('get-admin-loyalty-stats'),
+
+  // Get Loyalty Settings
+  getLoyaltySettings: (): Promise<{
+    success: boolean;
+    settings?: {
+      id: string;
+      service_rate_silver: number;
+      service_rate_gold: number;
+      service_rate_platinum: number;
+      silver_threshold: number;
+      gold_threshold: number;
+      platinum_threshold: number;
+      late_cancellation_penalty: number;
+      no_show_penalty: number;
+      created_at?: string;
+      updated_at?: string;
+    };
+    error?: string;
+  }> => invoke('get-loyalty-settings'),
   getDetailedReports: (reportType: 'retention' | 'peak_times', dateRange?: any): Promise<any> => invoke('get-detailed-reports', { reportType, dateRange }),
-  exportData: (entity: 'bookings' | 'orders' | 'users', format: 'csv' = 'csv'): Promise<{ csv: string; filename: string }> => invoke('export-data', { entity, format })
+  exportData: (entity: 'bookings' | 'orders' | 'users', format: 'csv' = 'csv'): Promise<{ csv: string; filename: string }> => invoke('export-data', { entity, format }),
+
+  // Billing & Transactions
+  createTransaction: (data: Record<string, unknown>): Promise<any> => invoke('create-transaction', data),
+  getBookingsForBilling: (): Promise<any[]> => invoke('get-bookings-for-billing'),
+  getTransactionAnalytics: (filter?: { startDate?: string; endDate?: string; groupBy?: 'day' | 'customer_type' }): Promise<any> => invoke('get-transaction-analytics', filter || {}),
+  getTransactions: async (filter?: { startDate?: string; endDate?: string; customerType?: 'walk-in' | 'booking' }): Promise<any[]> => {
+    try {
+      const { data: transactions, error } = await supabase!
+        .from('transactions')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return transactions || [];
+    } catch (error) {
+      logger.error('Error fetching transactions:', error, 'api');
+      return [];
+    }
+  },
+  exportDailyReport: async (date: string, format: 'csv' | 'pdf' = 'csv'): Promise<{ data: string; filename: string }> => {
+    const startDate = `${date}T00:00:00Z`;
+    const endDate = `${date}T23:59:59Z`;
+
+    const { data: transactions, error } = await supabase!
+      .from('transactions')
+      .select('*')
+      .gte('created_at', startDate)
+      .lte('created_at', endDate)
+      .order('created_at', { ascending: true });
+
+    if (error) throw error;
+
+    // Generate CSV
+    const headers = ['Receipt#', 'Time', 'Customer', 'Phone', 'Type', 'Services', 'Subtotal', 'Tax', 'Total', 'Payment'];
+    const rows = (transactions || []).map((t: unknown) => {
+      const time = new Date(t.created_at).toLocaleTimeString();
+      const services = (t.services || []).map((s: unknown) => s.service_name).join('; ');
+      return [
+        t.receipt_number,
+        time,
+        t.customer_name,
+        t.customer_phone,
+        t.customer_type,
+        services,
+        `$${t.subtotal.toFixed(2)}`,
+        `$${t.tax_amount.toFixed(2)}`,
+        `$${t.total_amount.toFixed(2)}`,
+        t.payment_method
+      ].join(',');
+    });
+
+    const csv = [headers.join(','), ...rows].join('\n');
+    const filename = `transactions_${date}.csv`;
+
+    return { data: csv, filename };
+  }
 };
 
 export const api: Api = {
   ...realApi,
   fetchCSRFToken
+
 };

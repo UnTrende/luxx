@@ -2,7 +2,7 @@
 export const requestNotificationPermission = async (): Promise<NotificationPermission> => {
   // Check if the browser supports notifications
   if (!('Notification' in window)) {
-    console.log("This browser does not support desktop notification.");
+    logger.info("This browser does not support desktop notification.", undefined, 'notificationService');
     return "denied";
   }
 
@@ -22,7 +22,7 @@ export const requestNotificationPermission = async (): Promise<NotificationPermi
 
 export const sendNotification = (title: string, options?: NotificationOptions) => {
   if (!('Notification' in window)) {
-    console.log("This browser does not support notifications.");
+    logger.info("This browser does not support notifications.", undefined, 'notificationService');
     return;
   }
   
@@ -32,7 +32,7 @@ export const sendNotification = (title: string, options?: NotificationOptions) =
       icon: '/favicon.ico', // Optional: Add a default icon
     });
   } else if (Notification.permission === 'default') {
-    console.log("Notification permission has not been requested yet.");
+    logger.info("Notification permission has not been requested yet.", undefined, 'notificationService');
     // Optionally, you could trigger a permission request here
     // requestNotificationPermission().then(permission => {
     //   if (permission === 'granted') {
@@ -40,6 +40,6 @@ export const sendNotification = (title: string, options?: NotificationOptions) =
     //   }
     // });
   } else {
-    console.log("Notification permission was denied.");
+    logger.info("Notification permission was denied.", undefined, 'notificationService');
   }
 };

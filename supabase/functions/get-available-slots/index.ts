@@ -82,17 +82,21 @@ serve(async (req) => {
       .eq('barber_id', barberId)
       .maybeSingle();
     if (settingsError) {
-      console.warn('Failed to load barber_settings, proceeding with empty hidden hours:', settingsError.message);
+      console.warn('Failed to load barber_settings, proceeding with empty hidden hours:', settingsError.message, 'index');
     }
     hiddenHours = Array.isArray(settingsRow?.hidden_hours) ? settingsRow!.hidden_hours as string[] : [];
 
-    // Step 3: Get existing bookings for this barber on this date
+    // Step 3: Get ACTIVE bookings for this barber on this date
+    // Only pending and confirmed bookings block time slots
+    // Completed and cancelled bookings don't block future bookings
     const { data: existingBookings, error: bookingsError } = await supabaseClient
       .from('bookings')
-      .select('timeslot, service_ids')
+      .select('timeslot, service_ids, status')
       .eq('barber_id', barberId)
       .eq('date', date)
-      .in('status', ['Confirmed', 'Pending']);
+      .in('status', ['pending', 'confirmed']);
+    
+    console.log('🔧 get-available-slots: Active bookings (pending/confirmed) for barber', barberId, 'on', date, ':', existingBookings, 'index');
 
     if (bookingsError) throw bookingsError;
 
@@ -154,7 +158,7 @@ serve(async (req) => {
     );
 
   } catch (error) {
-    console.error('Function error:', error);
+    console.error('Function error:', error, 'index');
     return new Response(
       JSON.stringify({ error: error.message }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

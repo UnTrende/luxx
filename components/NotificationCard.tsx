@@ -3,6 +3,7 @@ import { Bell, Check, RefreshCw, Clock, Send } from 'lucide-react';
 import { api } from '../services/api';
 import { AppNotification } from '../types';
 import { formatDistanceToNow } from 'date-fns';
+import { logger } from '../src/lib/logger';
 
 const NotificationCard: React.FC = () => {
     const [notifications, setNotifications] = useState<AppNotification[]>([]);
@@ -15,7 +16,7 @@ const NotificationCard: React.FC = () => {
             const data = await api.notifications.getNotifications();
             setNotifications(data || []);
         } catch (error) {
-            console.error('Failed to fetch notifications:', error);
+            logger.error('Failed to fetch notifications:', error, 'NotificationCard');
         } finally {
             setLoading(false);
         }
@@ -38,7 +39,7 @@ const NotificationCard: React.FC = () => {
                 n.id === id ? { ...n, is_read: true } : n
             ));
         } catch (error) {
-            console.error('Failed to mark as read:', error);
+            logger.error('Failed to mark as read:', error, 'NotificationCard');
         } finally {
             setMarkingId(null);
         }
@@ -64,7 +65,7 @@ const NotificationCard: React.FC = () => {
                 await fetchNotifications();
             }
         } catch (error) {
-            console.error('Failed to send test alert:', error);
+            logger.error('Failed to send test alert:', error, 'NotificationCard');
         } finally {
             setSendingTestAlert(false);
         }
@@ -91,7 +92,7 @@ const NotificationCard: React.FC = () => {
                 alert('Insert Success! Check list.');
                 fetchNotifications();
             }
-        } catch (e: any) {
+        } catch (e: Error | unknown) {
             alert(`Error: ${e.message}`);
         } finally {
             setSendingTestAlert(false);
@@ -211,10 +212,10 @@ const DebugStatus = () => {
     const [status, setStatus] = useState<any>({ loading: true });
 
     useEffect(() => {
-        api.invoke('get-all-users').then((users: any) => {
+        api.invoke('get-all-users').then((users: unknown) => {
             api.auth.getUserProfile().then(profile => {
-                const me = users.users?.find((u: any) => u.id === profile?.id);
-                const adminCount = users.users?.filter((u: any) => u.role === 'admin').length;
+                const me = users.users?.find((u: unknown) => u.id === profile?.id);
+                const adminCount = users.users?.filter((u: unknown) => u.role === 'admin').length;
                 setStatus({
                     myId: profile?.id?.slice(0, 8) + '...',
                     dbRole: me?.role || 'missing',

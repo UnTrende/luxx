@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { api } from '../services/api';
 import { BookingWithDetails, LoyaltyStats, OrderWithDetails } from '../types';
 import OrderTracking from '../components/OrderTracking';
+import { logger } from '../src/lib/logger';
 
 const ProfilePage: React.FC = () => {
     const navigate = useNavigate();
@@ -40,7 +41,7 @@ const ProfilePage: React.FC = () => {
                     const bookings = await api.getMyBookings();
                     setBookingCount(bookings.length);
                 } catch (error) {
-                    console.error('Error fetching bookings count:', error);
+                    logger.error('Error fetching bookings count:', error, 'ProfilePage');
                     setBookingCount(0);
                 } finally {
                     setIsLoadingBookings(false);
@@ -52,7 +53,7 @@ const ProfilePage: React.FC = () => {
                     const stats = await api.getLoyaltyStats();
                     setLoyaltyStats(stats);
                 } catch (error) {
-                    console.error('Error fetching loyalty stats:', error);
+                    logger.error('Error fetching loyalty stats:', error, 'ProfilePage');
                     setLoyaltyStats(null);
                 } finally {
                     setIsLoadingLoyalty(false);
@@ -67,7 +68,7 @@ const ProfilePage: React.FC = () => {
                     );
                     setRecentOrders(sortedOrders.slice(0, 3));
                 } catch (error) {
-                    console.error('Error fetching recent orders:', error);
+                    logger.error('Error fetching recent orders:', error, 'ProfilePage');
                     setRecentOrders([]);
                 } finally {
                     setIsLoadingOrders(false);
@@ -95,12 +96,12 @@ const ProfilePage: React.FC = () => {
         },
         {
             label: 'Points',
-            value: isLoadingLoyalty ? '...' : formatPoints(loyaltyStats?.redeemable_points || 0),
+            value: isLoadingLoyalty ? '...' : formatPoints(loyaltyStats?.redeemablePoints || 0),
             icon: <Star size={14} />
         },
         {
             label: 'Status',
-            value: isLoadingLoyalty ? '...' : (loyaltyStats?.status_tier || 'Silver'),
+            value: isLoadingLoyalty ? '...' : (loyaltyStats?.statusTier || 'Silver'),
             icon: <Shield size={14} />
         },
     ];
@@ -172,7 +173,7 @@ const ProfilePage: React.FC = () => {
                             key={index}
                             onClick={() => {
                                 if (stat.label === 'Points' || stat.label === 'Status') {
-                                    navigate('/profile/loyalty-history');
+                                    navigate('/profile/rewards');
                                 }
                             }}
                             className={`bg-glass-card border border-white/5 p-4 rounded-2xl flex flex-col items-center justify-center gap-2 backdrop-blur-md transition-all ${(stat.label === 'Points' || stat.label === 'Status') ? 'hover:border-gold/30 cursor-pointer' : 'cursor-default'
@@ -188,15 +189,15 @@ const ProfilePage: React.FC = () => {
                 </div>
 
                 {/* Loyalty Progress (shown when not loading and has next tier) */}
-                {!isLoadingLoyalty && loyaltyStats && loyaltyStats.next_tier && (
+                {!isLoadingLoyalty && loyaltyStats && loyaltyStats.statusTier !== 'Platinum' && (
                     <div className="bg-glass-card border border-white/5 rounded-2xl p-5 space-y-3">
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
                                 <TrendingUp size={16} className="text-gold" />
-                                <h3 className="text-white font-medium text-sm">Progress to {loyaltyStats.next_tier}</h3>
+                                <h3 className="text-white font-medium text-sm">Progress to {loyaltyStats.nextTier}</h3>
                             </div>
                             <span className="text-xs text-subtle-text">
-                                {loyaltyStats.visits_to_next_tier} {loyaltyStats.visits_to_next_tier === 1 ? 'visit' : 'visits'} away
+                                {loyaltyStats.progressToNextTier}% complete
                             </span>
                         </div>
 
@@ -205,30 +206,101 @@ const ProfilePage: React.FC = () => {
                             <div
                                 className="absolute top-0 left-0 h-full bg-gold-gradient transition-all duration-500"
                                 style={{
-                                    width: `${Math.min(100, (loyaltyStats.total_confirmed_visits / (loyaltyStats.total_confirmed_visits + loyaltyStats.visits_to_next_tier)) * 100)}%`
+                                    width: `${loyaltyStats.progressToNextTier}%`
                                 }}
                             />
                         </div>
 
+                        {/* Visits to Next Tier - FILLING LINE COMPONENT */}
+                        <div className="bg-white/5 rounded-lg p-3">
+                            <div className="flex justify-between items-center">
+                                <span className="text-xs text-subtle-text">Visits to next tier</span>
+                                <span className="text-sm font-bold text-gold">
+                                    {loyaltyStats.statusTier === 'Silver' 
+                                        ? Math.max(0, 100 - loyaltyStats.totalConfirmedVisits) 
+                                        : loyaltyStats.statusTier === 'Gold' 
+                                        ? Math.max(0, 200 - loyaltyStats.totalConfirmedVisits) 
+                                        : 0} visits
+                                </span>
+                            </div>
+                            <div className="w-full bg-white/10 rounded-full h-1.5 mt-2">
+                                <div 
+                                    className="bg-gold h-1.5 rounded-full" 
+                                    style={{ 
+                                        width: `${loyaltyStats.statusTier === 'Silver' 
+                                            ? Math.min(100, (loyaltyStats.totalConfirmedVisits / 100) * 100) 
+                                            : loyaltyStats.statusTier === 'Gold' 
+                                            ? Math.min(100, (loyaltyStats.totalConfirmedVisits / 200) * 100) 
+                                            : 100}%` 
+                                    }}
+                                ></div>
+                            </div>
+                            <div className="text-[10px] text-subtle-text mt-1">
+                                {loyaltyStats.statusTier === 'Silver' 
+                                    ? `Complete ${Math.max(0, 100 - loyaltyStats.totalConfirmedVisits)} more visits for Gold tier` 
+                                    : loyaltyStats.statusTier === 'Gold' 
+                                    ? `Complete ${Math.max(0, 200 - loyaltyStats.totalConfirmedVisits)} more visits for Platinum tier` 
+                                    : 'You\'ve reached the highest tier!'}
+                            </div>
+                        </div>
+
                         <div className="flex items-center justify-between text-xs">
                             <span className="text-subtle-text">
-                                {loyaltyStats.tier_benefits.current_points_per_dollar} pts/$1 now
+                                {loyaltyStats.totalConfirmedVisits} visits completed
                             </span>
                             <span className="text-gold font-bold">
-                                → {loyaltyStats.tier_benefits.next_points_per_dollar} pts/$1 at {loyaltyStats.next_tier}
+                                {loyaltyStats.statusTier === 'Silver' ? '100 visits for Gold' : '200 visits for Platinum'}
                             </span>
                         </div>
                     </div>
                 )}
 
                 {/* Max Tier Achieved */}
-                {!isLoadingLoyalty && loyaltyStats && loyaltyStats.status_tier === 'Platinum' && (
+                {!isLoadingLoyalty && loyaltyStats && loyaltyStats.statusTier === 'Platinum' && (
                     <div className="bg-gradient-to-r from-purple-900/20 to-gold/20 border border-gold/30 rounded-2xl p-5 text-center">
                         <div className="flex items-center justify-center gap-2 mb-2">
                             <Shield size={20} className="text-gold" />
                             <h3 className="text-gold font-serif font-bold text-lg">Platinum Status</h3>
                         </div>
-                        <p className="text-xs text-subtle-text">You've reached the highest tier! Earning {loyaltyStats.tier_benefits.current_points_per_dollar} points per dollar spent.</p>
+                        <p className="text-xs text-subtle-text">You've reached the highest tier!</p>
+                        
+                        {/* Visit Summary - FILLING LINE COMPONENT FOR PLATINUM */}
+                        <div className="bg-white/5 rounded-lg p-3 mt-3">
+                            <div className="flex justify-between items-center">
+                                <span className="text-xs text-subtle-text">Total visits completed</span>
+                                <span className="text-sm font-bold text-gold">
+                                    {loyaltyStats.totalConfirmedVisits} visits
+                                </span>
+                            </div>
+                            <div className="w-full bg-white/10 rounded-full h-1.5 mt-2">
+                                <div 
+                                    className="bg-gold h-1.5 rounded-full" 
+                                    style={{ width: '100%' }}
+                                ></div>
+                            </div>
+                            <div className="text-[10px] text-subtle-text mt-1">
+                                Enjoy exclusive Platinum benefits
+                            </div>
+                        </div>
+                        
+                        {/* Points Summary - Additional FILLING LINE COMPONENT FOR PLATINUM */}
+                        <div className="bg-white/5 rounded-lg p-3 mt-2">
+                            <div className="flex justify-between items-center">
+                                <span className="text-xs text-subtle-text">Redeemable points</span>
+                                <span className="text-sm font-bold text-gold">
+                                    {loyaltyStats.redeemablePoints.toLocaleString()} pts
+                                </span>
+                            </div>
+                            <div className="w-full bg-white/10 rounded-full h-1.5 mt-2">
+                                <div 
+                                    className="bg-gold h-1.5 rounded-full" 
+                                    style={{ width: '100%' }}
+                                ></div>
+                            </div>
+                            <div className="text-[10px] text-subtle-text mt-1">
+                                Use your points for discounts and rewards
+                            </div>
+                        </div>
                     </div>
                 )}
 

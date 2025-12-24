@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { User, Mail, Phone, ArrowLeft, Save, Loader } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { toast } from 'react-toastify';
+import { logger } from '../src/lib/logger';
 
 const EditProfilePage: React.FC = () => {
     const navigate = useNavigate();
@@ -42,8 +43,8 @@ const EditProfilePage: React.FC = () => {
             
             toast.success('Profile updated successfully!');
             navigate('/profile');
-        } catch (error: any) {
-            console.error('Failed to update profile:', error);
+        } catch (error: Error | unknown) {
+            logger.error('Failed to update profile:', error, 'EditProfilePage');
             toast.error(error.message || 'Failed to update profile. Please try again.');
         } finally {
             setIsSaving(false);

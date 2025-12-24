@@ -3,6 +3,7 @@ import { api } from '../services/api';
 import { UserProfile } from '../types';
 // FIX: Replaced deprecated UserCredentials with SignInWithPasswordCredentials
 import { AuthError, Session, SignInWithPasswordCredentials } from '@supabase/supabase-js';
+import { logger } from '../src/lib/logger';
 
 interface AuthContextType {
   user: UserProfile | null;
@@ -25,7 +26,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             const profile = await api.auth.getUserProfile();
             setUser(profile);
         } catch (error) {
-            console.error("Error fetching initial user profile:", error);
+            logger.error("Error fetching initial user profile", error, 'AuthContext');
             setUser(null);
         } finally {
             setIsLoading(false);
@@ -36,14 +37,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     const { data: authListener } = api.auth.onAuthStateChange(
       async (event, session) => {
-        console.log('🔐 Auth state changed:', { event, hasSession: !!session });
+        logger.debug('Auth state changed', { event, hasSession: !!session }, 'AuthContext');
         setIsLoading(true);
         if (event === 'SIGNED_IN' && session) {
-            console.log('🔐 User signed in, fetching profile...');
+            logger.info('User signed in, fetching profile', undefined, 'AuthContext');
             try {
-              console.log('🔐 About to call api.auth.getUserProfile...');
-              console.log('🔐 api.auth object:', typeof api.auth);
-              console.log('🔐 getUserProfile function:', typeof api.auth.getUserProfile);
+              logger.debug('Calling api.auth.getUserProfile', { 
+                apiAuthType: typeof api.auth, 
+                getUserProfileType: typeof api.auth.getUserProfile 
+              }, 'AuthContext');
               
               // Add timeout to prevent hanging
               const profilePromise = api.auth.getUserProfile();
@@ -52,7 +54,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
               );
               
               const profile = await Promise.race([profilePromise, timeoutPromise]);
-              console.log('🔐 Profile fetched successfully:', { profile: profile ? 'exists' : 'null', role: profile?.role });
+              logger.info('Profile fetched successfully', { 
+                profileExists: profile ? 'exists' : 'null', 
+                role: profile?.role 
+              }, 'AuthContext');
               
               if (profile) {
                 setUser(profile);
@@ -61,15 +66,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 throw new Error('Profile returned null');
               }
             } catch (profileError) {
-              console.error('🔐 Profile fetch failed:', profileError);
-              console.error('🔐 Full error:', profileError);
+              logger.error('Profile fetch failed', profileError, 'AuthContext');
               
               // Use session metadata as fallback - more reliable than hardcoding 'customer'
               const fallbackRole = session.user.app_metadata?.role || 
                                  session.user.user_metadata?.role || 
                                  'customer';
               
-              console.log('🔐 Creating fallback profile with role:', fallbackRole);
+              logger.info('Creating fallback profile', { fallbackRole }, 'AuthContext');
               setUser({
                 id: session.user.id,
                 email: session.user.email!,
@@ -78,7 +82,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
               });
             }
         } else if (event === 'SIGNED_OUT') {
-            console.log('🔐 User signed out');
+            logger.info('User signed out', undefined, 'AuthContext');
             setUser(null);
         }
         setIsLoading(false);
@@ -91,17 +95,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, []);
 
   const signIn = async (credentials: { email: string; password: string }) => {
-    console.log('🔐 AuthContext signIn called');
+    logger.info('AuthContext signIn called', undefined, 'AuthContext');
     try {
       setIsLoading(true);
       const { error } = await api.auth.signIn(credentials);
-      console.log('🔐 AuthContext signIn result:', { error: error?.message });
+      logger.info('AuthContext signIn result', { errorMessage: error?.message }, 'AuthContext');
       // User state will be updated by onAuthStateChange listener
       return { error };
-    } catch (err: any) {
+    } catch (err: Error | unknown) {
       // Handle quota exceeded error specifically
       if (err.name === 'QuotaExceededError' || err.message?.includes('QuotaExceededError') || err.message?.includes('exceeded the quota')) {
-        console.error('🔐 Storage quota exceeded:', err);
+        logger.error('Storage quota exceeded', err, 'AuthContext');
         // Try to clear more storage space
         try {
           // Clear old cache data more aggressively
@@ -123,11 +127,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           const { error } = await api.auth.signIn(credentials);
           return { error };
         } catch (retryError) {
-          console.error('🔐 SignIn retry failed:', retryError);
+          logger.error('SignIn retry failed', retryError, 'AuthContext');
           return { error: new Error('Storage quota exceeded. Please follow these steps: 1) Press F12 to open DevTools, 2) Go to Application/Storage tab, 3) Click "Clear storage" or run "localStorage.clear()" in the console, 4) Refresh the page and try again.') };
         }
       }
-      console.error('🔐 AuthContext signIn caught error:', err);
+      logger.error('AuthContext signIn caught error', err, 'AuthContext');
       return { error: err as AuthError };
     } finally {
       setIsLoading(false);

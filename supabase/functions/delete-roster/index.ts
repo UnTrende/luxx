@@ -31,7 +31,7 @@ serve(async (req) => {
             );
         }
 
-        console.log('Deleting roster:', rosterId);
+        console.log('Deleting roster:', rosterId, 'index');
 
         const { error } = await supabase
             .from('rosters')
@@ -39,7 +39,7 @@ serve(async (req) => {
             .eq('id', rosterId);
 
         if (error) {
-            console.error('Error deleting roster:', error);
+            console.error('Error deleting roster:', error, 'index');
             return new Response(
                 JSON.stringify({ success: false, error: error.message }),
                 { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -52,7 +52,7 @@ serve(async (req) => {
         );
 
     } catch (error) {
-        console.error('Unexpected error:', error);
+        console.error('Unexpected error:', error, 'index');
         return new Response(
             JSON.stringify({ success: false, error: error.message }),
             { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

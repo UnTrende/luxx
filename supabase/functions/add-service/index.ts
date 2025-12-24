@@ -88,7 +88,7 @@ serve(async (req) => {
       status: 201,
     });
   } catch (error) {
-    console.error('Error in add-service function:', error);
+    console.error('Error in add-service function:', error, 'index');
     return new Response(JSON.stringify({ error: error.message }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 400,

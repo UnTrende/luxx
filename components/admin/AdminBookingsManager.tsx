@@ -2,29 +2,66 @@ import React, { useState } from 'react';
 import { toast } from 'react-toastify';
 import { Booking, Service, Barber } from '../../types';
 import { api } from '../../services/api';
-import { Search, Filter, Calendar, Clock, User, Scissors, X } from 'lucide-react';
+import { Search, Filter, Calendar, Clock, User, Scissors, X, AlertCircle } from 'lucide-react';
+import { logger } from '../../src/lib/logger';
 
 interface AdminBookingsManagerProps {
     bookings: Booking[];
     setBookings: React.Dispatch<React.SetStateAction<Booking[]>>;
     services: Service[];
     barbers: Barber[];
+    initialFilter?: string | null;
 }
 
-export const AdminBookingsManager: React.FC<AdminBookingsManagerProps> = ({ bookings, setBookings, services, barbers }) => {
+export const AdminBookingsManager: React.FC<AdminBookingsManagerProps> = ({ bookings, setBookings, services, barbers, initialFilter }) => {
     const [bookingSearchTerm, setBookingSearchTerm] = useState('');
-    const [statusFilter, setStatusFilter] = useState('all');
+    const [statusFilter, setStatusFilter] = useState(initialFilter || 'all');
+    const [showContextBanner, setShowContextBanner] = useState(!!initialFilter);
+
+    // Count items for context banner
+    const pendingCount = bookings.filter(b => b.status === 'pending').length;
 
     const handleBookingStatusUpdate = async (bookingId: string, newStatus: 'pending' | 'confirmed' | 'completed' | 'cancelled') => {
         try {
+            logger.info('Client updating booking status', {
+      bookingId,
+      newStatus,
+      bookingIdType: typeof bookingId,
+      bookingExists: !!bookingId
+    }, 'AdminBookingsManager');
+
             // Optimistic update
             setBookings(prev => prev.map(b => b.id === bookingId ? { ...b, status: newStatus } : b));
 
             // Persist to database
-            await api.updateBookingStatus(bookingId, newStatus);
-            toast.success('Booking status updated successfully');
+            const result = await api.updateBookingStatus(bookingId, newStatus);
+            
+            // Show success message with loyalty info if available
+            if (newStatus === 'completed' && result.loyaltyResult) {
+                const loyalty = result.loyaltyResult;
+                
+                // Check if this was a reward booking (points deducted)
+                if (loyalty.isRewardBooking) {
+                    toast.success(
+                        `💎 Reward booking completed! ${loyalty.pointsRedeemed} points deducted. Customer balance: ${loyalty.newBalance} points`,
+                        { duration: 5000 }
+                    );
+                } else if (loyalty.tierUpgraded) {
+                    toast.success(
+                        `🎉 Booking completed! Customer upgraded to ${loyalty.newTier} tier and earned ${loyalty.pointsAwarded} points!`,
+                        { duration: 6000 }
+                    );
+                } else {
+                    toast.success(
+                        `✅ Booking completed! Customer earned ${loyalty.pointsAwarded} loyalty points (${loyalty.newVisitCount} total visits)`,
+                        { duration: 5000 }
+                    );
+                }
+            } else {
+                toast.success('Booking status updated successfully');
+            }
         } catch (error) {
-            console.error('Booking status update failed:', error);
+            logger.error('Booking status update failed:', error, 'AdminBookingsManager');
             toast.error('Failed to update booking status');
 
             // Revert on error
@@ -42,6 +79,35 @@ export const AdminBookingsManager: React.FC<AdminBookingsManagerProps> = ({ book
 
     return (
         <div className="space-y-6">
+            {/* Context Banner - Shows why user is here */}
+            {showContextBanner && initialFilter === 'pending' && pendingCount > 0 && (
+                <div className="bg-yellow-500/10 border-l-4 border-yellow-500 p-5 rounded-xl relative animate-slide-down">
+                    <div className="flex items-start justify-between">
+                        <div className="flex items-start gap-4">
+                            <div className="p-2 rounded-lg bg-yellow-500/20">
+                                <AlertCircle className="text-yellow-400" size={24} />
+                            </div>
+                            <div>
+                                <h3 className="text-white font-bold text-lg mb-1">⚠️ Action Required</h3>
+                                <p className="text-yellow-200 text-sm">
+                                    You have <span className="font-bold">{pendingCount} pending booking{pendingCount !== 1 ? 's' : ''}</span> that need confirmation.
+                                    {pendingCount > 5 && ' This is higher than usual!'}
+                                </p>
+                                <p className="text-yellow-200/70 text-xs mt-1">
+                                    Review and confirm or cancel these bookings to keep customers informed.
+                                </p>
+                            </div>
+                        </div>
+                        <button
+                            onClick={() => setShowContextBanner(false)}
+                            className="text-yellow-400 hover:text-white transition-colors"
+                        >
+                            <X size={20} />
+                        </button>
+                    </div>
+                </div>
+            )}
+
             {/* Header & Controls */}
             <div className="flex flex-col md:flex-row justify-between items-end gap-4 bg-glass-card p-6 rounded-3xl border border-white/10 relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-64 h-64 bg-gold/5 blur-[80px] rounded-full pointer-events-none" />
@@ -114,6 +180,10 @@ export const AdminBookingsManager: React.FC<AdminBookingsManagerProps> = ({ book
                                     ? barbers.find(b => b.id === booking.barberId)?.name || 'Any Barber'
                                     : 'Any Barber';
 
+                                // Check if this is a reward booking
+                                const isRewardBooking = (booking as any).is_reward_booking || false;
+                                const pointsRedeemed = (booking as any).points_redeemed || 0;
+
                                 return (
                                     <tr key={booking.id} className="hover:bg-white/5 transition-all duration-300 group">
                                         <td className="py-5 px-8">
@@ -121,7 +191,21 @@ export const AdminBookingsManager: React.FC<AdminBookingsManagerProps> = ({ book
                                                 <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-white/50 text-xs font-bold">
                                                     <User size={14} />
                                                 </div>
-                                                <span className="font-bold text-white group-hover:text-gold transition-colors">{booking.userName || 'Unknown'}</span>
+                                                <div className="flex flex-col gap-1">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="font-bold text-white group-hover:text-gold transition-colors">{booking.userName || 'Unknown'}</span>
+                                                        {isRewardBooking && (
+                                                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide bg-cyan-500/10 text-cyan-400 border border-cyan-500/30">
+                                                                🎁 Reward
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    {isRewardBooking && (
+                                                        <span className="text-xs text-cyan-400/70">
+                                                            {pointsRedeemed} points redeemed
+                                                        </span>
+                                                    )}
+                                                </div>
                                             </div>
                                         </td>
                                         <td className="py-5 px-8">

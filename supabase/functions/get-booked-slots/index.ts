@@ -29,7 +29,7 @@ serve(async (req) => {
       .select('timeslot')
       .eq('barber_id', barberId) // Use correct column name
       .eq('date', date)
-      .neq('status', 'Canceled');
+      .neq('status', 'cancelled');
 
     if (error) throw error;
 

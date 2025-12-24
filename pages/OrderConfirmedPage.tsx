@@ -5,6 +5,7 @@ import { OrderWithDetails } from '../types';
 import { PartyPopper, Loader } from 'lucide-react';
 import { api } from '../services/api';
 import { resolveProductImage } from '../services/imageResolver';
+import { logger } from '../src/lib/logger';
 
 const OrderConfirmedPage: React.FC = () => {
     const { orderId } = useParams<{ orderId: string }>();
@@ -21,7 +22,7 @@ const OrderConfirmedPage: React.FC = () => {
                 const fetchedOrder = await api.getOrderById(orderId);
                 setOrder(fetchedOrder);
             } catch (error) {
-                console.error("Failed to fetch order details:", error);
+                logger.error("Failed to fetch order details:", error, 'OrderConfirmedPage');
                 setOrder(null);
             } finally {
                 setIsLoading(false);

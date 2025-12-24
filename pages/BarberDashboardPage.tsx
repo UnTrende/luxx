@@ -7,6 +7,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { api } from '../services/api';
 import BarberRosterCard from '../components/BarberRosterCard';
 import NotificationCard from '../components/NotificationCard';
+import { logger } from '../src/lib/logger';
 
 const BarberDashboardPage: React.FC = () => {
     const navigate = useNavigate();
@@ -54,7 +55,7 @@ const BarberDashboardPage: React.FC = () => {
                 const attendance = await api.getBarberAttendance();
                 setCurrentAttendance(attendance);
             } catch (attendanceError) {
-                console.error("Failed to get attendance:", attendanceError);
+                logger.error("Failed to get attendance:", attendanceError, 'BarberDashboardPage');
             }
 
             const [schedule, services] = await Promise.all([
@@ -78,10 +79,10 @@ const BarberDashboardPage: React.FC = () => {
                     }
                 }
             } catch (e) {
-                console.warn('Failed to load initial hidden hours', e);
+                logger.warn('Failed to load initial hidden hours', e, 'BarberDashboardPage');
             }
         } catch (error) {
-            console.error("Failed to load barber dashboard data:", error);
+            logger.error("Failed to load barber dashboard data:", error, 'BarberDashboardPage');
         } finally {
             setIsLoadingData(false);
             setIsLoadingAttendance(false);
@@ -113,7 +114,7 @@ const BarberDashboardPage: React.FC = () => {
             await api.updateBarberAvailability(newHiddenHours);
             toast.success('Availability updated');
         } catch (error) {
-            console.error("Failed to update availability:", error);
+            logger.error("Failed to update availability:", error, 'BarberDashboardPage');
             setHiddenHours(hiddenHours);
             toast.error("Could not update availability. Please try again.");
         }
@@ -138,7 +139,7 @@ const BarberDashboardPage: React.FC = () => {
             setIsCancelModalOpen(false);
             setSelectedBookingForCancel(null);
         } catch (error) {
-            console.error("Failed to cancel booking:", error);
+            logger.error("Failed to cancel booking:", error, 'BarberDashboardPage');
             toast.error("Error: Could not cancel booking.");
         } finally {
             setIsCanceling(false);
@@ -160,7 +161,7 @@ const BarberDashboardPage: React.FC = () => {
                 toast.error(`Action failed: ${result.message}`);
             }
         } catch (error) {
-            console.error(`Failed to ${action}:`, error);
+            logger.error(`Failed to ${action}:`, error, 'BarberDashboardPage');
             toast.error(`Error: Could not ${action.replace('-', ' ')}.`);
         }
     };

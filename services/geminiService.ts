@@ -1,5 +1,6 @@
 
 import { supabase } from './supabaseClient';
+import { logger } from '../src/lib/logger';
 
 export const generateHairstyle = async (prompt: string, image: File): Promise<string> => {
   try {
@@ -28,7 +29,7 @@ export const generateHairstyle = async (prompt: string, image: File): Promise<st
     });
 
     if (error) {
-      console.error('Edge Function Error:', error);
+      logger.error('Edge Function Error:', error, 'geminiService');
       throw new Error(error.message || 'Failed to generate hairstyle');
     }
 
@@ -39,7 +40,7 @@ export const generateHairstyle = async (prompt: string, image: File): Promise<st
     return data.image;
 
   } catch (error) {
-    console.error("Error generating hairstyle:", error);
+    logger.error("Error generating hairstyle:", error, 'geminiService');
     throw new Error("Failed to generate AI hairstyle preview. Please try again.");
   }
 };

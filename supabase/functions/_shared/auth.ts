@@ -51,19 +51,45 @@ export async function authenticateUser(request: Request, requiredRole?: string):
 }
 
 export function validateCSRF(request: Request) {
-  // 1. Get Token from Header
+  // Enhanced CSRF validation using double-submit pattern
   const headerToken = request.headers.get('X-CSRF-Token');
-
-  // Simplified validation: Just check for header token presence.
-  // The full double-submit cookie pattern requires cross-origin cookies to work,
-  // which is complex with Supabase Edge Functions on their default domain.
-  // The header-only check is still secure because:
-  // - The attacker cannot read the token from the body response (CORS prevents this).
-  // - The token is generated server-side and stored client-side per session.
-  if (!headerToken || headerToken.length < 30) { // UUID is 36 chars
-    console.error('CSRF Validation Failed: Missing or invalid X-CSRF-Token header');
-    throw new Error('CSRF Validation Failed');
+  const cookieHeader = request.headers.get('Cookie');
+  
+  if (!headerToken || headerToken.length < 30) {
+    logger.error('CSRF Validation Failed: Missing or invalid X-CSRF-Token header', undefined, 'auth');
+    throw new Error('CSRF Validation Failed: Missing header token');
   }
+  
+  // Extract CSRF token from cookies
+  let cookieToken: string | null = null;
+  if (cookieHeader) {
+    const cookies = cookieHeader.split(';');
+    for (const cookie of cookies) {
+      const [name, value] = cookie.trim().split('=');
+      if (name === 'csrf-token') {
+        cookieToken = value;
+        break;
+      }
+    }
+  }
+  
+  if (!cookieToken) {
+    logger.error('CSRF Validation Failed: Missing csrf-token cookie', undefined, 'auth');
+    throw new Error('CSRF Validation Failed: Missing cookie token');
+  }
+  
+  // Validate tokens match (double-submit pattern)
+  if (headerToken !== cookieToken) {
+    logger.error('CSRF Validation Failed: Header and cookie tokens do not match', {
+      headerPrefix: headerToken.substring(0, 8),
+      cookiePrefix: cookieToken.substring(0, 8)
+    }, 'auth');
+    throw new Error('CSRF Validation Failed: Token mismatch');
+  }
+  
+  logger.debug('CSRF validation successful', { 
+    tokenPrefix: headerToken.substring(0, 8) 
+  }, 'auth');
 }
 
 
@@ -73,4 +99,50 @@ export async function authenticateAdmin(request: Request): Promise<Authenticated
 
 export async function authenticateBarber(request: Request): Promise<AuthenticatedUser> {
   return authenticateUser(request, 'barber');
+}
+
+// validateAuth - accepts Supabase client and array of allowed roles
+export async function validateAuth(supabase: any, allowedRoles: string[] = []): Promise<AuthenticatedUser | null> {
+  try {
+    // Get the user from the Supabase client
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError) {
+      logger.error('Auth error:', userError, 'auth');
+      return null;
+    }
+    if (!user) {
+      logger.error('No user found', undefined, 'auth');
+      return null;
+    }
+
+    // Get user role from app_users table
+    const { data: userData, error: dbError } = await supabase
+      .from('app_users')
+      .select('role, name')
+      .eq('id', user.id)
+      .single();
+
+    if (dbError) {
+      logger.error('Database error fetching user:', dbError, 'auth');
+      return null;
+    }
+
+    const userRole = userData?.role || user.app_metadata?.role || 'customer';
+
+    // Check if user has required role
+    if (allowedRoles.length > 0 && !allowedRoles.includes(userRole)) {
+      logger.error(`User role ${userRole} not in allowed roles:`, allowedRoles, 'auth');
+      return null;
+    }
+
+    return {
+      id: user.id,
+      email: user.email!,
+      role: userRole,
+      name: userData?.name || user.user_metadata?.name || 'Unknown User'
+    };
+  } catch (error: Error | unknown) {
+    logger.error('validateAuth error:', error, 'auth');
+    return null;
+  }
 }

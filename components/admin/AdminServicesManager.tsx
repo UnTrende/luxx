@@ -5,6 +5,7 @@ import { Service } from '../../types';
 import { api } from '../../services/api';
 import { ImageUpload } from '../../components/ImageUpload';
 import { Edit2, Trash2, Plus, Search } from 'lucide-react';
+import { logger } from '../../src/lib/logger';
 
 interface AdminServicesManagerProps {
     services: Service[];
@@ -45,7 +46,7 @@ export const AdminServicesManager: React.FC<AdminServicesManagerProps> = ({ serv
             setServiceImagePath('');
             setServiceImageUrl('');
         } catch (error) {
-            console.error('Service operation failed:', error);
+            logger.error('Service operation failed:', error, 'AdminServicesManager');
             toast.error('Failed to save service');
         }
     };
@@ -58,7 +59,7 @@ export const AdminServicesManager: React.FC<AdminServicesManagerProps> = ({ serv
             setServices(prev => prev.filter(s => s.id !== id));
             toast.success('Service deleted successfully');
         } catch (error) {
-            console.error('Service deletion failed:', error);
+            logger.error('Service deletion failed:', error, 'AdminServicesManager');
             toast.error('Failed to delete service');
         }
     };
@@ -148,18 +149,18 @@ export const AdminServicesManager: React.FC<AdminServicesManagerProps> = ({ serv
                                 <td className="py-5 px-8 text-subtle-text font-mono">{service.duration} min</td>
                                 <td className="py-5 px-8 font-bold text-gold text-lg">${service.price}</td>
                                 <td className="py-5 px-8 text-right">
-                                    <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <div className="flex justify-end gap-2">
                                         <button
                                             onClick={() => openModal(service)}
-                                            className="p-2 rounded-lg hover:bg-white/10 text-subtle-text hover:text-white transition-colors"
-                                            title="Edit"
+                                            className="p-2 rounded-lg bg-gold/10 hover:bg-gold/20 text-gold hover:text-white transition-all border border-gold/20"
+                                            title="Edit Service"
                                         >
                                             <Edit2 size={18} />
                                         </button>
                                         <button
                                             onClick={() => handleServiceDelete(service.id)}
-                                            className="p-2 rounded-lg hover:bg-red-500/10 text-subtle-text hover:text-red-400 transition-colors"
-                                            title="Delete"
+                                            className="p-2 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 transition-all border border-red-500/20"
+                                            title="Delete Service"
                                         >
                                             <Trash2 size={18} />
                                         </button>
@@ -244,15 +245,114 @@ export const AdminServicesManager: React.FC<AdminServicesManagerProps> = ({ serv
                                 </div>
                             </div>
 
-                            {/* Loyalty Points */}
-                            <div className="group">
-                                <label className="block text-xs font-bold uppercase tracking-widest text-subtle-text mb-2 group-focus-within:text-gold transition-colors">Loyalty Points</label>
-                                <input
-                                    type="number"
-                                    {...serviceForm.register('loyalty_points', { required: 'Loyalty points are required', min: 0 })}
-                                    className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-4 text-white focus:border-gold focus:ring-1 focus:ring-gold/20 focus:outline-none transition-all placeholder:text-white/20"
-                                    placeholder="100"
-                                />
+                            {/* Loyalty Points - Tier Based */}
+                            <div className="space-y-4">
+                                <label className="block text-xs font-bold uppercase tracking-widest text-gold mb-3">
+                                    🎁 Loyalty Points by Tier
+                                </label>
+                                <p className="text-xs text-subtle-text mb-4">
+                                    Set different point values for each customer tier. Higher tiers receive more points.
+                                </p>
+                                
+                                <div className="grid grid-cols-3 gap-4">
+                                    {/* Silver Tier */}
+                                    <div className="group">
+                                        <label className="block text-xs font-semibold text-gray-400 mb-2 flex items-center gap-2">
+                                            <span className="w-3 h-3 rounded-full bg-gray-400"></span>
+                                            Silver
+                                        </label>
+                                        <input
+                                            type="number"
+                                            {...serviceForm.register('loyalty_points_silver', { required: 'Silver points required', min: 0 })}
+                                            className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-3 text-white text-center focus:border-gray-400 focus:ring-1 focus:ring-gray-400/20 focus:outline-none transition-all placeholder:text-white/20"
+                                            placeholder="10"
+                                        />
+                                    </div>
+
+                                    {/* Gold Tier */}
+                                    <div className="group">
+                                        <label className="block text-xs font-semibold text-gold mb-2 flex items-center gap-2">
+                                            <span className="w-3 h-3 rounded-full bg-gold"></span>
+                                            Gold
+                                        </label>
+                                        <input
+                                            type="number"
+                                            {...serviceForm.register('loyalty_points_gold', { required: 'Gold points required', min: 0 })}
+                                            className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-3 text-white text-center focus:border-gold focus:ring-1 focus:ring-gold/20 focus:outline-none transition-all placeholder:text-white/20"
+                                            placeholder="15"
+                                        />
+                                    </div>
+
+                                    {/* Platinum Tier */}
+                                    <div className="group">
+                                        <label className="block text-xs font-semibold text-cyan-400 mb-2 flex items-center gap-2">
+                                            <span className="w-3 h-3 rounded-full bg-gradient-to-r from-cyan-400 to-blue-500"></span>
+                                            Platinum
+                                        </label>
+                                        <input
+                                            type="number"
+                                            {...serviceForm.register('loyalty_points_platinum', { required: 'Platinum points required', min: 0 })}
+                                            className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-3 text-white text-center focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400/20 focus:outline-none transition-all placeholder:text-white/20"
+                                            placeholder="20"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="bg-gold/5 border border-gold/20 rounded-xl p-3 mt-3">
+                                    <p className="text-xs text-gold flex items-start gap-2">
+                                        <span>💡</span>
+                                        <span>Tip: Platinum customers should receive the most points to reward loyalty. Typical ratio is 1:1.5:2 (Silver:Gold:Platinum)</span>
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* Points Redemption Settings */}
+                            <div className="space-y-4 pt-6 border-t border-white/10">
+                                <label className="block text-xs font-bold uppercase tracking-widest text-cyan-400 mb-3">
+                                    🎁 Reward Redemption
+                                </label>
+                                <p className="text-xs text-subtle-text mb-4">
+                                    Allow customers to redeem points to get this service for FREE
+                                </p>
+
+                                {/* Is Redeemable Toggle */}
+                                <div className="flex items-center justify-between p-4 bg-black/20 rounded-xl border border-white/10">
+                                    <div>
+                                        <label className="text-sm font-bold text-white">Enable as Reward</label>
+                                        <p className="text-xs text-subtle-text mt-1">Customers can redeem points for this service</p>
+                                    </div>
+                                    <label className="relative inline-flex items-center cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            {...serviceForm.register('is_redeemable')}
+                                            className="sr-only peer"
+                                        />
+                                        <div className="w-14 h-7 bg-black/40 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-cyan-400/50 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:start-[4px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-cyan-500"></div>
+                                    </label>
+                                </div>
+
+                                {/* Redemption Points Cost */}
+                                <div className="group">
+                                    <label className="block text-xs font-semibold text-subtle-text mb-2">
+                                        Points Required to Redeem
+                                    </label>
+                                    <input
+                                        type="number"
+                                        {...serviceForm.register('redemption_points', { min: 0 })}
+                                        className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-4 text-white text-center text-xl font-bold focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400/20 focus:outline-none transition-all placeholder:text-white/20"
+                                        placeholder="100"
+                                    />
+                                    <p className="text-xs text-subtle-text mt-2 text-center">
+                                        Customer needs this many points to book for free
+                                    </p>
+                                </div>
+
+                                <div className="bg-cyan-500/5 border border-cyan-500/20 rounded-xl p-3">
+                                    <p className="text-xs text-cyan-400 flex items-start gap-2">
+                                        <span>💡</span>
+                                        <span>Example: Set to 100 points → Customer with 150 points can book this service and will have 50 points remaining</span>
+                                    </p>
+                                </div>
                             </div>
 
                             {/* Service Image */}

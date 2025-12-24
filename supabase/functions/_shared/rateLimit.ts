@@ -24,7 +24,7 @@ export async function checkRateLimit(
         });
 
         if (error) {
-            console.error('Rate limit check failed:', error);
+            logger.error('Rate limit check failed:', error, 'rateLimit');
             // Fail open (allow request) if DB check fails to avoid blocking users due to system error
             // Or fail closed depending on security posture. Failing open is usually safer for UX.
             return true;
@@ -32,7 +32,7 @@ export async function checkRateLimit(
 
         return isAllowed;
     } catch (err) {
-        console.error('Unexpected error in checkRateLimit:', err);
+        logger.error('Unexpected error in checkRateLimit:', err, 'rateLimit');
         return true; // Fail open
     }
 }

@@ -33,7 +33,7 @@ serve(async (req) => {
       );
     }
 
-    console.log(`📤 Uploading to ${bucket}/${path}`);
+    console.log(`📤 Uploading to ${bucket}/${path}`, undefined, 'index');
 
     // Upload file to storage
     const { data: uploadData, error: uploadError } = await supabaseClient
@@ -45,7 +45,7 @@ serve(async (req) => {
       });
 
     if (uploadError) {
-      console.error('Upload error:', uploadError);
+      console.error('Upload error:', uploadError, 'index');
       throw uploadError;
     }
 
@@ -55,7 +55,7 @@ serve(async (req) => {
       .from(bucket)
       .getPublicUrl(path);
 
-    console.log('✅ Upload successful:', publicUrl);
+    console.log('✅ Upload successful:', publicUrl, 'index');
 
     return new Response(
       JSON.stringify({ 
@@ -68,7 +68,7 @@ serve(async (req) => {
     );
 
   } catch (error) {
-    console.error('Function error:', error);
+    console.error('Function error:', error, 'index');
     return new Response(
       JSON.stringify({ error: error.message }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

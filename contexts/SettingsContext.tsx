@@ -1,12 +1,13 @@
 import React, { createContext, useState, useEffect, useContext, ReactNode } from 'react';
 import { api } from '../services/api';
+import { logger } from '../src/lib/logger';
 
 interface SiteSettings {
   shop_name?: string;
   allow_signups?: boolean;
   site_logo?: string;
   hero_images?: string[];
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 interface SettingsContextType {
@@ -33,7 +34,7 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
         const settingsData = response.success && response.data ? response.data : response;
         setSettings(settingsData);
       } catch (err) {
-        console.error("Failed to fetch settings:", err);
+        logger.error("Failed to fetch settings", err, 'SettingsContext');
         setError("Failed to load site settings");
       } finally {
         setIsLoading(false);

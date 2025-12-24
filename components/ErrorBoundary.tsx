@@ -1,4 +1,5 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
+import { logger } from '../src/lib/logger';
 
 interface Props {
     children?: ReactNode;
@@ -22,7 +23,7 @@ class ErrorBoundary extends React.Component<Props, State> {
     }
 
     public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-        console.error('Uncaught error:', error, errorInfo);
+        logger.error('Uncaught error:', error, errorInfo, 'ErrorBoundary');
         // In a real app, you might send this to Sentry or another error logging service
     }
 

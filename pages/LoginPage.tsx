@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { LogIn, UserPlus, Brush, Scissors } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useSettings } from '../contexts/SettingsContext';
+import { logger } from '../src/lib/logger';
 
 const LoginPage: React.FC = () => {
     const navigate = useNavigate();
@@ -24,32 +25,28 @@ const LoginPage: React.FC = () => {
     const [appSettings, setAppSettings] = useState({ allowSignups: true, shopName: 'BARBERSHOP' });
 
     useEffect(() => {
-        console.log('📍 LoginPage: User state changed', {
-            userExists: !!user,
-            userRole: user?.role,
-            isAuthLoading
-        });
+        logger.info('📍 LoginPage: User state changed', undefined, 'LegacyConsole');
 
         // Don't redirect while still loading
         if (isAuthLoading) {
-            console.log('📍 LoginPage: Still loading, waiting...');
+            logger.info('📍 LoginPage: Still loading, waiting...', undefined, 'LoginPage');
             return;
         }
 
         // Redirect if user is already logged in
         if (user) {
-            console.log('📍 LoginPage: User logged in, redirecting based on role', user.role);
-            console.log('📍 LoginPage: Full user object:', user);
+            logger.info('📍 LoginPage: User logged in, redirecting based on role', user.role, 'LoginPage');
+            logger.info('📍 LoginPage: Full user object:', user, 'LoginPage');
 
             // ALWAYS redirect admin and barber to their dashboards (ignore 'from' path)
             if (user.role === 'admin') {
-                console.log('📍 LoginPage: ✅ ADMIN DETECTED - Redirecting to /admin');
+                logger.info('📍 LoginPage: ✅ ADMIN DETECTED - Redirecting to /admin', undefined, 'LoginPage');
                 navigate('/admin', { replace: true });
                 return;
             }
 
             if (user.role === 'barber') {
-                console.log('📍 LoginPage: ✅ BARBER DETECTED - Redirecting to /barber-admin');
+                logger.info('📍 LoginPage: ✅ BARBER DETECTED - Redirecting to /barber-admin', undefined, 'LoginPage');
                 navigate('/barber-admin', { replace: true });
                 return;
             }
@@ -61,17 +58,11 @@ const LoginPage: React.FC = () => {
             const preselectedServiceId = (location.state as any)?.preselectedServiceId;
             const selectedServices = (location.state as any)?.selectedServices;
 
-            console.log('📍 LoginPage: Customer login - checking redirect path', {
-                from,
-                returnTo,
-                barberId,
-                preselectedServiceId,
-                selectedServices
-            });
+            logger.info('📍 LoginPage: Customer login - checking redirect path', undefined, 'LegacyConsole');
 
             // If returning to booking flow, restore state
             if (returnTo === 'booking' && barberId) {
-                console.log('📍 LoginPage: Returning to booking flow with preserved state');
+                logger.info('📍 LoginPage: Returning to booking flow with preserved state', undefined, 'LoginPage');
                 navigate(`/book/${barberId}`, {
                     replace: true,
                     state: {
@@ -83,10 +74,10 @@ const LoginPage: React.FC = () => {
             }
 
             if (from && from !== '/login' && from !== '/') {
-                console.log('📍 LoginPage: Redirecting customer to intended path', from);
+                logger.info('📍 LoginPage: Redirecting customer to intended path', from, 'LoginPage');
                 navigate(from, { replace: true });
             } else {
-                console.log('📍 LoginPage: ⚠️ CUSTOMER ROLE - Redirecting to /my-bookings');
+                logger.info('📍 LoginPage: ⚠️ CUSTOMER ROLE - Redirecting to /my-bookings', undefined, 'LoginPage');
                 navigate('/my-bookings', { replace: true });
             }
         }
@@ -112,7 +103,7 @@ const LoginPage: React.FC = () => {
                         siteLogo = JSON.parse(siteLogo);
                     }
                 } catch (parseError) {
-                    console.warn('Logo parsing failed, using raw value:', siteLogo);
+                    logger.warn('Logo parsing failed, using raw value:', siteLogo, 'LoginPage');
                 }
                 setLogoUrl(siteLogo);
             }
@@ -145,24 +136,24 @@ const LoginPage: React.FC = () => {
         setError(''); // Clear previous errors
 
         try {
-            console.log('📱 LoginPage: Starting authentication...');
+            logger.info('📱 LoginPage: Starting authentication...', undefined, 'LoginPage');
             if (isLoginMode) {
-                console.log('📱 LoginPage: Calling signIn...');
+                logger.info('📱 LoginPage: Calling signIn...', undefined, 'LoginPage');
                 const { error } = await signIn({ email, password });
-                console.log('📱 LoginPage: signIn returned', { error: error?.message });
+                logger.info('📱 LoginPage: signIn returned', { error: error?.message }, 'LoginPage');
                 if (error) throw error;
             } else {
                 if (!appSettings.allowSignups) {
                     throw new Error('New account registrations are currently disabled.');
                 }
-                console.log('📱 LoginPage: Calling signUp...');
+                logger.info('📱 LoginPage: Calling signUp...', undefined, 'LoginPage');
                 const { error } = await signUp({ email, password, name });
-                console.log('📱 LoginPage: signUp returned', { error: error?.message });
+                logger.info('📱 LoginPage: signUp returned', { error: error?.message }, 'LoginPage');
                 if (error) throw error;
             }
-            console.log('📱 LoginPage: Authentication successful');
-        } catch (err: any) {
-            console.log('📱 LoginPage: Authentication error caught', err);
+            logger.info('📱 LoginPage: Authentication successful', undefined, 'LoginPage');
+        } catch (err: Error | unknown) {
+            logger.info('📱 LoginPage: Authentication error caught', err, 'LoginPage');
             // Handle quota exceeded error with user-friendly message
             if (err.name === 'QuotaExceededError' || err.message?.includes('QuotaExceededError') || err.message?.includes('exceeded the quota')) {
                 setError('Your browser storage is full. Please follow these steps: 1) Press F12 to open DevTools, 2) Go to Application/Storage tab, 3) Click "Clear storage" or run "localStorage.clear()" in the console, 4) Refresh the page and try again.');
@@ -170,7 +161,7 @@ const LoginPage: React.FC = () => {
                 setError(err.message || 'Authentication failed. Please try again.');
             }
         } finally {
-            console.log('📱 LoginPage: Setting loading to false');
+            logger.info('📱 LoginPage: Setting loading to false', undefined, 'LoginPage');
             setLoading(false);
         }
     };
@@ -193,11 +184,11 @@ const LoginPage: React.FC = () => {
                             <Scissors size={64} className="text-gold transform rotate-45 absolute scale-x-[-1] drop-shadow-[0_0_10px_rgba(212,175,55,0.5)]" strokeWidth={1.5} />
                         </div>
                     )}
-                    <h1 className="text-4xl font-serif font-bold tracking-widest text-transparent bg-clip-text bg-gold-gradient uppercase">
+                    <h1 className="text-4xl font-serif font-bold tracking-widest text-white uppercase">
                         {appSettings.shopName}
                     </h1>
-                    <div className="h-[1px] w-24 bg-gold/50 mt-4 mb-2"></div>
-                    <p className="text-[10px] text-gold/60 tracking-[0.3em] uppercase">Premium Grooming</p>
+                    <div className="h-[1px] w-24 bg-white/30 mt-4 mb-2"></div>
+                    <p className="text-[10px] text-white/70 tracking-[0.3em] uppercase">Premium Grooming</p>
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-8">

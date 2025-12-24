@@ -1,4 +1,5 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { logger } from '../src/lib/logger';
 
 // --- Supabase is now ENABLED ---
 // The application is configured to connect to a real Supabase backend.
@@ -15,16 +16,16 @@ const createSafeStorage = () => {
       try {
         return localStorage.getItem(key);
       } catch (error) {
-        console.warn(`Failed to get item from localStorage: ${key}`, error);
+        logger.warn(`Failed to get item from localStorage: ${key}`, error, 'supabaseClient');
         return null;
       }
     },
     setItem: (key: string, value: string) => {
       try {
         localStorage.setItem(key, value);
-      } catch (error: any) {
+      } catch (error: Error | unknown) {
         if (error.name === 'QuotaExceededError' || error.message?.includes('QuotaExceededError') || error.message?.includes('exceeded the quota')) {
-          console.warn('LocalStorage quota exceeded, attempting to clear space...');
+          logger.warn('LocalStorage quota exceeded, attempting to clear space...', undefined, 'supabaseClient');
 
           // Try to clear non-essential items AND fix large auth tokens
           try {
@@ -40,7 +41,7 @@ const createSafeStorage = () => {
                 try {
                   const tokenData = localStorage.getItem(key);
                   if (tokenData && tokenData.length > 50000) { // If token is unusually large (>50KB)
-                    console.warn(`Removing large auth token: ${key} (${Math.round(tokenData.length / 1024)}KB)`);
+                    logger.warn(`Removing large auth token: ${key} (${Math.round(tokenData.length / 1024)}KB)`, undefined, 'supabaseClient');
                     keysToRemove.push(key);
                   }
                 } catch (e) {
@@ -54,16 +55,16 @@ const createSafeStorage = () => {
 
             // Try again
             localStorage.setItem(key, value);
-            console.log('Successfully stored item after clearing space');
+            logger.info('Successfully stored item after clearing space', undefined, 'supabaseClient');
           } catch (retryError) {
-            console.error('Failed to store item even after clearing space:', retryError);
+            logger.error('Failed to store item even after clearing space:', retryError, 'supabaseClient');
 
             // Last resort: Clear ALL localStorage except the current key we're trying to set
-            console.warn('Last resort: clearing all localStorage');
+            logger.warn('Last resort: clearing all localStorage', undefined, 'supabaseClient');
             try {
               localStorage.clear();
               localStorage.setItem(key, value);
-              console.log('Successfully stored after full clear');
+              logger.info('Successfully stored after full clear', undefined, 'supabaseClient');
             } catch (finalError) {
               throw new Error('Storage quota exceeded. Please clear your browser cache or use incognito mode.');
             }
@@ -77,7 +78,7 @@ const createSafeStorage = () => {
       try {
         localStorage.removeItem(key);
       } catch (error) {
-        console.warn(`Failed to remove item from localStorage: ${key}`, error);
+        logger.warn(`Failed to remove item from localStorage: ${key}`, error, 'supabaseClient');
       }
     },
   };

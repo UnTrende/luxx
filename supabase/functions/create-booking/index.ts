@@ -1,151 +1,149 @@
-// FIX: Updated to a stable, versioned Deno types URL to resolve TypeScript errors.
-/// <reference types="https://esm.sh/v135/@supabase/functions-js@2.4.1/src/edge-runtime.d.ts" />
+import { logger } from '../_shared/response.ts';
 
-import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
-import { corsHeaders } from '../_shared/cors.ts';
-import { supabaseAdmin } from '../_shared/supabaseClient.ts';
+// SECURE & OPTIMIZED VERSION - Full auth but using JWT metadata instead of DB queries
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { authenticateUser } from '../_shared/auth.ts';
 
-serve(async (req) => {
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, X-CSRF-Token',
+};
+
+Deno.serve(async (req) => {
+  // Handle CORS
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
 
   try {
-    const { bookingDetails } = await req.json();
+    console.log('🔒 create-booking: Function started (secure & optimized)', undefined, 'index');
 
-    // Authenticate user if possible
-    let userId = null;
-    try {
-      const user = await authenticateUser(req);
-      userId = user.id;
-    } catch (authError) {
-      // User is not authenticated, which is allowed for guest bookings
-      console.log('User not authenticated, allowing guest booking');
+    // Create Supabase client with service role (bypasses RLS)
+    const supabaseAdmin = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+
+    // OPTIMIZED AUTH: Get user from JWT without additional DB queries
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: 'Missing authorization header' }), 
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
-    // Map JavaScript property names to database column names (all lowercase)
-    const newBookingData = {
-      user_id: bookingDetails.userId || userId,
-      username: bookingDetails.userName,  // Try lowercase
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
+    
+    if (authError || !user) {
+      console.log('🔒 create-booking: Invalid token', undefined, 'index');
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized - Invalid token' }), 
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Get role from JWT metadata (no DB query needed!)
+    const userRole = user.app_metadata?.role || user.user_metadata?.role || 'customer';
+    
+    console.log('User authenticated for booking creation', {
+      userId: user.id,
+      userRole: user.role
+    }, 'create-booking');
+
+    // Only customers can create bookings
+    if (userRole !== 'customer') {
+      return new Response(
+        JSON.stringify({ error: 'Only customers can create bookings' }), 
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Parse request body
+    const body = await req.json();
+    const { bookingDetails } = body;
+
+    console.log('🔒 create-booking: Received booking details:', bookingDetails, 'index');
+    
+    // Check if this is a reward booking
+    const isRewardBooking = bookingDetails.isRewardBooking || false;
+    const pointsRedeemed = bookingDetails.pointsRedeemed || 0;
+    
+    if (isRewardBooking) {
+        console.log(`🎁 REWARD BOOKING: Customer redeeming ${pointsRedeemed} points`, undefined, 'index');
+    }
+
+    // Verify the booking is for the authenticated user
+    if (bookingDetails.userId !== user.id) {
+      return new Response(
+        JSON.stringify({ error: 'Cannot create booking for another user' }), 
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Check for duplicate active bookings (prevents double-booking)
+    const { data: existingBookings } = await supabaseAdmin
+      .from('bookings')
+      .select('id, status')
+      .eq('barber_id', bookingDetails.barberId)
+      .eq('date', bookingDetails.date)
+      .eq('timeslot', bookingDetails.timeSlot)
+      .in('status', ['pending', 'confirmed']);
+
+    if (existingBookings && existingBookings.length > 0) {
+      console.log('🔒 create-booking: Slot already booked', undefined, 'index');
+      return new Response(
+        JSON.stringify({ error: 'This time slot is no longer available. Please select another time.' }), 
+        { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Create booking data
+    const newBooking = {
+      user_id: user.id, // Use authenticated user ID
+      username: bookingDetails.userName,
       barber_id: bookingDetails.barberId,
       service_ids: bookingDetails.serviceIds,
       date: bookingDetails.date,
-      timeslot: bookingDetails.timeSlot,  // This works based on get-booked-slots
-      totalprice: bookingDetails.totalPrice,  // Try lowercase
-      status: 'confirmed',  // FIXED: lowercase to match database constraint
-      reviewleft: false  // Try lowercase
+      timeslot: bookingDetails.timeSlot,
+      totalprice: bookingDetails.totalPrice,
+      status: 'confirmed',
+      reviewleft: false,
+      is_reward_booking: isRewardBooking,
+      points_redeemed: pointsRedeemed
     };
+    
+    console.log('🔒 create-booking: Booking type:', isRewardBooking ? '🎁 REWARD' : '💰 REGULAR', 'index');
+
+    console.log('🔒 create-booking: Attempting to insert booking', undefined, 'index');
 
     // Insert booking
-    const { data: newBooking, error: bookingError } = await supabaseAdmin
+    const { data, error } = await supabaseAdmin
       .from('bookings')
-      .insert(newBookingData)
+      .insert(newBooking)
       .select()
       .single();
 
-    if (bookingError) throw bookingError;
-
-    // Process loyalty transaction for each service
-    if (userId && bookingDetails.serviceIds && bookingDetails.serviceIds.length > 0) {
-      try {
-        // Process loyalty for the first service (assuming single service bookings for simplicity)
-        // In a real implementation, you might want to process loyalty for all services
-        const serviceId = bookingDetails.serviceIds[0];
-        
-        // Call the process-loyalty-transaction function
-        const { data: loyaltyResult, error: loyaltyError } = await supabaseAdmin.functions.invoke(
-          'process-loyalty-transaction',
-          {
-            body: {
-              bookingId: newBooking.id,
-              amountPaid: bookingDetails.totalPrice,
-              serviceId: serviceId
-            }
-          }
-        );
-
-        if (loyaltyError) {
-          console.error('Loyalty transaction failed:', loyaltyError.message);
-        } else {
-          console.log('Loyalty transaction successful:', loyaltyResult);
-        }
-      } catch (loyaltyProcessingError) {
-        console.error('Error processing loyalty transaction:', loyaltyProcessingError);
-      }
+    if (error) {
+      console.error('🔒 create-booking: Insert failed:', error, 'index');
+      return new Response(
+        JSON.stringify({ error: error.message, details: error.details }), 
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
-    // Create notification for barber
-    // Fetch Barber Name and User ID for the notification message
-    const { data: barberData } = await supabaseAdmin
-      .from('barbers')
-      .select('name, user_id')
-      .eq('id', newBooking.barber_id)
-      .single();
+    console.log('🔒 create-booking: SUCCESS! Booking created:', data.id, 'index');
 
-    const barberName = barberData?.name || 'the barber';
-    const barberUserId = barberData?.user_id || newBooking.barber_id; // Fallback to barber_id if user_id not found
+    return new Response(
+      JSON.stringify(data),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
 
-    // Prepare Notifications
-    const notifications: any[] = [];
-
-    // 1. Notify the Barber (using user_id, not barber_id)
-    notifications.push({
-      recipient_id: barberUserId,
-      type: 'BOOKING_CONFIRMED',
-      message: `${newBooking.username} booked an appointment for ${newBooking.date} at ${newBooking.timeslot}.`,
-      payload: { bookingId: newBooking.id }
-    });
-
-    // 2. Notify Admins
-    const { data: admins } = await supabaseAdmin
-      .from('app_users')
-      .select('id')
-      .eq('role', 'admin');
-
-    if (admins && admins.length > 0) {
-      admins.forEach(admin => {
-        // Prevent duplicate if barber is admin
-        if (admin.id !== newBooking.barber_id) {
-          notifications.push({
-            recipient_id: admin.id,
-            type: 'BOOKING_CONFIRMED',
-            message: `New Booking: ${newBooking.username} booked ${barberName} for ${newBooking.date} at ${newBooking.timeslot}.`,
-            payload: { bookingId: newBooking.id }
-          });
-        }
-      });
-    } else {
-      // Fallback: If no admins in app_users, try to notify the booking creator if they are admin? No.
-      console.log("No admins found in app_users table to notify.");
-    }
-
-    // Insert all notifications
-    const { error: notificationError } = await supabaseAdmin
-      .from('notifications')
-      .insert(notifications);
-
-    if (notificationError) console.error("Failed to create notifications:", notificationError.message);
-
-
-    return new Response(JSON.stringify({
-      ...newBooking,
-      debug: {
-        notificationsSent: notifications.length,
-        adminsFound: admins ? admins.length : 0,
-        adminIds: admins ? admins.map(a => a.id) : [],
-        barberId: newBooking.barber_id,
-        notificationError: notificationError // Return error if any
-      }
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 201,
-    });
-  } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 400,
-    });
+  } catch (err: Error | unknown) {
+    console.error('🔒 create-booking: Unexpected error:', err, 'index');
+    return new Response(
+      JSON.stringify({ error: err.message }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
   }
 });

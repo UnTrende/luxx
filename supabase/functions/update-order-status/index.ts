@@ -84,7 +84,7 @@ serve(async (req) => {
                 .eq('id', currentOrder.product_id);  // database column is product_id
 
             if (stockError) {
-                console.error('Failed to restore stock:', stockError);
+                console.error('Failed to restore stock:', stockError, 'index');
                 // Continue with status update even if stock restoration fails
             }
         }
@@ -117,7 +117,7 @@ serve(async (req) => {
             headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
         });
     } catch (err) {
-        console.error('Error updating order status:', err);
+        console.error('Error updating order status:', err, 'index');
         return new Response(JSON.stringify({ error: err.message }), {
             status: 500,
             headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
