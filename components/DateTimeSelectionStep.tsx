@@ -74,7 +74,14 @@ const DateTimeSelectionStep: React.FC<DateTimeSelectionStepProps> = ({
 
   // Load available dates when component mounts or barber changes
   useEffect(() => {
-    checkAvailableDates();
+    // Simplified: Just show all dates as available
+    // Availability will be checked when user selects a date (via slot availability)
+    const dates = generateDates();
+    setAvailableDates(new Set(dates));
+    setDatesLoading(false);
+    
+    // Uncomment below to enable roster-based date filtering (slower)
+    // checkAvailableDates();
   }, [barber?.id]);
 
   const loadAvailableSlots = async (date: string) => {
