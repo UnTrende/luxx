@@ -22,68 +22,76 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   useEffect(() => {
     const fetchUserProfile = async () => {
-        try {
-            const profile = await api.auth.getUserProfile();
-            setUser(profile);
-        } catch (error) {
-            logger.error("Error fetching initial user profile", error, 'AuthContext');
-            setUser(null);
-        } finally {
-            setIsLoading(false);
-        }
+      try {
+        const profile = await api.auth.getUserProfile();
+        setUser(profile);
+      } catch (error) {
+        logger.error("Error fetching initial user profile", error, 'AuthContext');
+        setUser(null);
+      } finally {
+        setIsLoading(false);
+      }
     };
-    
+
     fetchUserProfile();
 
     const { data: authListener } = api.auth.onAuthStateChange(
       async (event, session) => {
         logger.debug('Auth state changed', { event, hasSession: !!session }, 'AuthContext');
-        setIsLoading(true);
+
+        // Only set loading state for actual sign-in/sign-out events
+        // Skip loading state for token refresh and initial session events to prevent
+        // unnecessary re-renders when switching browser tabs
+        const shouldShowLoading = event === 'SIGNED_IN' || event === 'SIGNED_OUT';
+        if (shouldShowLoading) {
+          setIsLoading(true);
+        }
+
         if (event === 'SIGNED_IN' && session) {
-            logger.info('User signed in, fetching profile', undefined, 'AuthContext');
-            try {
-              logger.debug('Calling api.auth.getUserProfile', { 
-                apiAuthType: typeof api.auth, 
-                getUserProfileType: typeof api.auth.getUserProfile 
-              }, 'AuthContext');
-              
-              // Add timeout to prevent hanging
-              const profilePromise = api.auth.getUserProfile();
-              const timeoutPromise = new Promise<UserProfile | null>((_, reject) =>
-                setTimeout(() => reject(new Error('getUserProfile timeout after 10 seconds')), 10000)
-              );
-              
-              const profile = await Promise.race([profilePromise, timeoutPromise]);
-              logger.info('Profile fetched successfully', { 
-                profileExists: profile ? 'exists' : 'null', 
-                role: profile?.role 
-              }, 'AuthContext');
-              
-              if (profile) {
-                setUser(profile);
-              } else {
-                // If profile is null, use fallback
-                throw new Error('Profile returned null');
-              }
-            } catch (profileError) {
-              logger.error('Profile fetch failed', profileError, 'AuthContext');
-              
-              // Use session metadata as fallback - more reliable than hardcoding 'customer'
-              const fallbackRole = session.user.app_metadata?.role || 
-                                 session.user.user_metadata?.role || 
-                                 'customer';
-              
-              logger.info('Creating fallback profile', { fallbackRole }, 'AuthContext');
-              setUser({
-                id: session.user.id,
-                email: session.user.email!,
-                name: session.user.user_metadata?.name || 'User',
-                role: fallbackRole
-              });
+          logger.info('User signed in, fetching profile', undefined, 'AuthContext');
+          try {
+            logger.debug('Calling api.auth.getUserProfile', {
+              apiAuthType: typeof api.auth,
+              getUserProfileType: typeof api.auth.getUserProfile
+            }, 'AuthContext');
+
+            // Add timeout to prevent hanging
+            const profilePromise = api.auth.getUserProfile();
+            const timeoutPromise = new Promise<UserProfile | null>((_, reject) =>
+              setTimeout(() => reject(new Error('getUserProfile timeout after 10 seconds')), 10000)
+            );
+
+            const profile = await Promise.race([profilePromise, timeoutPromise]);
+            logger.info('Profile fetched successfully', {
+              profileExists: profile ? 'exists' : 'null',
+              role: profile?.role
+            }, 'AuthContext');
+
+            if (profile) {
+              setUser(profile);
+            } else {
+              // If profile is null, use fallback
+              throw new Error('Profile returned null');
             }
+          } catch (profileError) {
+            logger.error('Profile fetch failed', profileError, 'AuthContext');
+
+            // Use session metadata as fallback - more reliable than hardcoding 'customer'
+            const fallbackRole = session.user.app_metadata?.role ||
+              session.user.user_metadata?.role ||
+              'customer';
+
+            logger.info('Creating fallback profile', { fallbackRole }, 'AuthContext');
+            setUser({
+              id: session.user.id,
+              email: session.user.email!,
+              name: session.user.user_metadata?.name || 'User',
+              role: fallbackRole
+            });
+          }
         } else if (event === 'SIGNED_OUT') {
-            logger.info('User signed out', undefined, 'AuthContext');
-            setUser(null);
+          logger.info('User signed out', undefined, 'AuthContext');
+          setUser(null);
         }
         setIsLoading(false);
       }
@@ -116,13 +124,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
               keysToRemove.push(key);
             }
           }
-          
+
           // Remove the identified keys
           keysToRemove.forEach(key => localStorage.removeItem(key));
-          
+
           // Also try to clear session storage
           sessionStorage.clear();
-          
+
           // Retry the sign in
           const { error } = await api.auth.signIn(credentials);
           return { error };
