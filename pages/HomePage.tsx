@@ -47,12 +47,23 @@ const HomePage: React.FC = () => {
           }
         }
         logger.info('🔧 Final hero URLs:', heroUrls, 'HomePage');
-        setHeroImages(heroUrls);
+        // Use fallback if no hero images configured
+        if (heroUrls.length > 0) {
+          setHeroImages(heroUrls);
+        } else {
+          logger.warn('🔧 No hero images configured, using fallback', undefined, 'HomePage');
+          setHeroImages(['https://images.unsplash.com/photo-1585747860715-2ba37e788b70?w=1920&q=80']);
+        }
       } else {
         const imagesString = localStorage.getItem('heroImages');
         const images = imagesString ? JSON.parse(imagesString) : [];
         logger.info('🔧 Hero images from localStorage:', images, 'HomePage');
-        setHeroImages(images);
+        if (images.length > 0) {
+          setHeroImages(images);
+        } else {
+          logger.warn('🔧 No hero images in localStorage, using fallback', undefined, 'HomePage');
+          setHeroImages(['https://images.unsplash.com/photo-1585747860715-2ba37e788b70?w=1920&q=80']);
+        }
       }
     };
 
