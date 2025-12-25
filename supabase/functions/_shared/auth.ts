@@ -56,7 +56,7 @@ export function validateCSRF(request: Request) {
   const cookieHeader = request.headers.get('Cookie');
   
   if (!headerToken || headerToken.length < 30) {
-    logger.error('CSRF Validation Failed: Missing or invalid X-CSRF-Token header', undefined, 'auth');
+    console.error('CSRF Validation Failed: Missing or invalid X-CSRF-Token header');
     throw new Error('CSRF Validation Failed: Missing header token');
   }
   
@@ -74,22 +74,22 @@ export function validateCSRF(request: Request) {
   }
   
   if (!cookieToken) {
-    logger.error('CSRF Validation Failed: Missing csrf-token cookie', undefined, 'auth');
+    console.error('CSRF Validation Failed: Missing csrf-token cookie');
     throw new Error('CSRF Validation Failed: Missing cookie token');
   }
   
   // Validate tokens match (double-submit pattern)
   if (headerToken !== cookieToken) {
-    logger.error('CSRF Validation Failed: Header and cookie tokens do not match', {
+    console.error('CSRF Validation Failed: Header and cookie tokens do not match', {
       headerPrefix: headerToken.substring(0, 8),
       cookiePrefix: cookieToken.substring(0, 8)
-    }, 'auth');
+    });
     throw new Error('CSRF Validation Failed: Token mismatch');
   }
   
-  logger.debug('CSRF validation successful', { 
+  console.log('CSRF validation successful', { 
     tokenPrefix: headerToken.substring(0, 8) 
-  }, 'auth');
+  });
 }
 
 
@@ -107,11 +107,11 @@ export async function validateAuth(supabase: any, allowedRoles: string[] = []): 
     // Get the user from the Supabase client
     const { data: { user }, error: userError } = await supabase.auth.getUser();
     if (userError) {
-      logger.error('Auth error:', userError, 'auth');
+      console.error('Auth error:', userError);
       return null;
     }
     if (!user) {
-      logger.error('No user found', undefined, 'auth');
+      console.error('No user found');
       return null;
     }
 
@@ -123,7 +123,7 @@ export async function validateAuth(supabase: any, allowedRoles: string[] = []): 
       .single();
 
     if (dbError) {
-      logger.error('Database error fetching user:', dbError, 'auth');
+      console.error('Database error fetching user:', dbError);
       return null;
     }
 
@@ -131,7 +131,7 @@ export async function validateAuth(supabase: any, allowedRoles: string[] = []): 
 
     // Check if user has required role
     if (allowedRoles.length > 0 && !allowedRoles.includes(userRole)) {
-      logger.error(`User role ${userRole} not in allowed roles:`, allowedRoles, 'auth');
+      console.error(`User role ${userRole} not in allowed roles:`, allowedRoles);
       return null;
     }
 
@@ -142,7 +142,7 @@ export async function validateAuth(supabase: any, allowedRoles: string[] = []): 
       name: userData?.name || user.user_metadata?.name || 'Unknown User'
     };
   } catch (error: Error | unknown) {
-    logger.error('validateAuth error:', error, 'auth');
+    console.error('validateAuth error:', error);
     return null;
   }
 }

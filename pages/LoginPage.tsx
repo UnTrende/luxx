@@ -36,7 +36,7 @@ const LoginPage: React.FC = () => {
         // Redirect if user is already logged in
         if (user) {
             logger.info('📍 LoginPage: User logged in, redirecting based on role', user.role, 'LoginPage');
-            logger.info('📍 LoginPage: Full user object:', user, 'LoginPage');
+            // DO NOT log full user object - security risk
 
             // ALWAYS redirect admin and barber to their dashboards (ignore 'from' path)
             if (user.role === 'admin') {
@@ -218,6 +218,7 @@ const LoginPage: React.FC = () => {
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
                             required
+                            autoComplete="email"
                             className="w-full px-0 py-3 bg-transparent border-b border-white/20 text-white placeholder-transparent focus:outline-none focus:border-gold transition-colors peer"
                             placeholder="Email Address"
                             id="email"
@@ -236,6 +237,7 @@ const LoginPage: React.FC = () => {
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
                             required
+                            autoComplete={isLoginMode ? "current-password" : "new-password"}
                             className="w-full px-0 py-3 bg-transparent border-b border-white/20 text-white placeholder-transparent focus:outline-none focus:border-gold transition-colors peer"
                             placeholder="Password"
                             id="password"

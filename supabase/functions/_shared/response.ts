@@ -5,7 +5,13 @@
 // ============================================================================
 
 import { corsHeaders } from './cors.ts';
-import { logger } from '../../../src/lib/logger';
+
+// Simple logger for edge functions
+const logger = {
+  error: (...args: any[]) => console.error(...args),
+  info: (...args: any[]) => console.log(...args),
+  warn: (...args: any[]) => console.warn(...args),
+};
 
 /**
  * Create a successful JSON response with proper CORS headers

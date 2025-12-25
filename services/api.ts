@@ -958,13 +958,7 @@ const realApi = {
   getTransactionAnalytics: (filter?: { startDate?: string; endDate?: string; groupBy?: 'day' | 'customer_type' }): Promise<any> => invoke('get-transaction-analytics', filter || {}),
   getTransactions: async (filter?: { startDate?: string; endDate?: string; customerType?: 'walk-in' | 'booking' }): Promise<any[]> => {
     try {
-      const { data: transactions, error } = await supabase!
-        .from('transactions')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      return transactions || [];
+      return await invoke<any[]>('get-transactions', {});
     } catch (error) {
       logger.error('Error fetching transactions:', error, 'api');
       return [];

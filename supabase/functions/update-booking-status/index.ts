@@ -149,7 +149,7 @@ serve(async (req) => {
                 const isRewardBooking = updatedBooking.is_reward_booking || false;
                 const pointsRedeemed = updatedBooking.points_redeemed || 0;
 
-                console.log('🎁 Booking type:', isRewardBooking ? 'REWARD (paid with points, 'index')' : 'REGULAR (paid with money)');
+                console.log('🎁 Booking type:', isRewardBooking ? 'REWARD (paid with points)' : 'REGULAR (paid with money)', 'index');
 
                 // Get the service IDs from the booking
                 const serviceIds = updatedBooking.service_ids || [];

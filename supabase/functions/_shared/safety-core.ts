@@ -3,7 +3,6 @@ declare const Deno: unknown;
 
 import { corsHeaders } from './cors.ts';
 import { getRedisClient } from './redis-client.ts';
-import { logger } from '../../../src/lib/logger';
 
 export const enhancedCorsHeaders = {
   ...corsHeaders,
@@ -40,7 +39,7 @@ export function extractUserId(req: Request): string | undefined {
     // For now, we'll just return a placeholder
     return 'user-id-placeholder';
   } catch (error) {
-    logger.error('Error extracting user ID:', error, 'safety-core');
+    console.error('Error extracting user ID:', error);
     return undefined;
   }
 }
@@ -49,7 +48,7 @@ export function extractUserId(req: Request): string | undefined {
 export async function logRequest(req: Request, context: SafetyContext): Promise<void> {
   if (!context.config.enableMonitoring) return;
 
-  logger.info(`REQUEST ${context.requestId}: ${req.method} ${req.url} from ${context.ip}`, undefined, 'safety-core');
+  console.log(`REQUEST ${context.requestId}: ${req.method} ${req.url} from ${context.ip}`);
 
   // In a real implementation, this would log to the security_logs table
   // For now, we'll just log to console
@@ -61,7 +60,7 @@ export async function handleError(error: Error | unknown, req: Request, context:
 
   // Log error if monitoring is enabled
   if (context.config.enableMonitoring) {
-    logger.error(`ERROR ${context.requestId}: ${errorMessage}`, undefined, 'safety-core');
+    console.error(`ERROR ${context.requestId}: ${errorMessage}`);
 
     // In a real implementation, this would log to the security_logs table
   }
