@@ -36,20 +36,8 @@ const BarbersPage: React.FC = () => {
 
         fetchBarbers();
 
-        // Refetch when page becomes visible (e.g., returning from profile page)
-        const handleVisibilityChange = () => {
-            if (document.visibilityState === 'visible') {
-                logger.info('🔄 Page visible - refreshing barber data', undefined, 'BarbersPage');
-                fetchBarbers();
-            }
-        };
-
-        document.addEventListener('visibilitychange', handleVisibilityChange);
-
-        // Also refetch on navigation (when component remounts)
-        return () => {
-            document.removeEventListener('visibilitychange', handleVisibilityChange);
-        };
+        // Removed visibility change listener to prevent unnecessary refetches
+        // Data will be fresh on initial mount and can be manually refreshed if needed
     }, []);
 
     const renderContent = () => {

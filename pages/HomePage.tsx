@@ -89,7 +89,7 @@ const HomePage: React.FC = () => {
 
     window.addEventListener('storage', handleStorageChange);
     return () => window.removeEventListener('storage', handleStorageChange);
-  }, [settings, isSettingsLoading]);
+  }, []); // Removed settings dependencies to prevent unnecessary refetches
 
   useEffect(() => {
     if (paused || heroImages.length <= 1) return;
