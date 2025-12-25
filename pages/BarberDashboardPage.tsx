@@ -97,7 +97,7 @@ const BarberDashboardPage: React.FC = () => {
                 loadData();
             }
         }
-    }, [loggedInUser, isAuthLoading, navigate, loadData, location]);
+    }, [loggedInUser, isAuthLoading, navigate, loadData]); // Removed 'location' to prevent unnecessary reloads
 
     const upcomingBookings = useMemo(() => {
         return [...myBookings].sort((a, b) => a.timeSlot.localeCompare(b.timeSlot));
