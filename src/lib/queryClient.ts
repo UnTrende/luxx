@@ -16,8 +16,8 @@ export const queryClient = new QueryClient({
         return failureCount < 2;
       },
       refetchOnWindowFocus: false,
-      refetchOnMount: true,
-      refetchOnReconnect: 'always',
+      refetchOnMount: false, // Don't refetch on component mount if data is fresh
+      refetchOnReconnect: false, // Don't refetch on network reconnect
       retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
     },
     mutations: {

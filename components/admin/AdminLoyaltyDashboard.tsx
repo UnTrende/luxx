@@ -45,7 +45,7 @@ const AdminLoyaltyDashboard: React.FC<AdminLoyaltyDashboardProps> = ({ showConte
     queryKey: ['admin-loyalty-stats'],
     queryFn: () => api.getAdminLoyaltyStats(),
     staleTime: 1000 * 60 * 5, // 5 minutes
-    refetchInterval: 1000 * 60 * 2, // Auto-refetch every 2 minutes
+    // Removed auto-refetch to prevent constant reloading when switching tabs
   });
 
   // Use real data or fallback to zeros while loading

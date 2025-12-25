@@ -62,8 +62,9 @@ export const useBookings = () => {
         queryKey: ADMIN_KEYS.bookings(),
         queryFn: () => api.getAllBookings(),
         // Bookings change frequently, keep stale time lower or rely on invalidation
-        staleTime: 1000 * 30, // 30 seconds
-        refetchInterval: 1000 * 60, // Auto-refetch every minute
+        staleTime: 1000 * 60 * 2, // 2 minutes
+        // Removed auto-refetch interval to prevent constant reloading
+        // Data will be refetched when manually invalidated after mutations
     });
 };
 
