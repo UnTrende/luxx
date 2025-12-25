@@ -29,7 +29,7 @@ const BarberAppointmentsPage: React.FC = () => {
 
     useEffect(() => {
         loadData();
-    }, [loggedInUser]);
+    }, [loggedInUser?.id]); // Use stable ID instead of object reference
 
     const loadData = async () => {
         if (!loggedInUser || loggedInUser.role !== 'barber') return;

@@ -39,7 +39,7 @@ const MyOrdersPage: React.FC = () => {
             };
             fetchOrders();
         }
-    }, [loggedInUser]);
+    }, [loggedInUser?.id]); // Use stable ID instead of object reference
 
     const getStatusChip = (status: OrderWithDetails['status']) => {
         switch (status) {

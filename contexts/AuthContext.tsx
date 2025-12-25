@@ -1,4 +1,4 @@
-import React, { createContext, useState, useEffect, useContext, ReactNode } from 'react';
+import React, { createContext, useState, useEffect, useContext, ReactNode, useRef } from 'react';
 import { api } from '../services/api';
 import { UserProfile } from '../types';
 // FIX: Replaced deprecated UserCredentials with SignInWithPasswordCredentials
@@ -20,10 +20,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [user, setUser] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Track current user ID to prevent unnecessary re-fetches on token refresh
+  const currentUserIdRef = useRef<string | null>(null);
+
   useEffect(() => {
     const fetchUserProfile = async () => {
       try {
         const profile = await api.auth.getUserProfile();
+        if (profile) {
+          currentUserIdRef.current = profile.id;
+        }
         setUser(profile);
       } catch (error) {
         logger.error("Error fetching initial user profile", error, 'AuthContext');
@@ -39,11 +45,23 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       async (event, session) => {
         logger.debug('Auth state changed', { event, hasSession: !!session }, 'AuthContext');
 
-        // Only set loading state for actual sign-in/sign-out events
-        // Skip loading state for token refresh and initial session events to prevent
-        // unnecessary re-renders when switching browser tabs
-        const shouldShowLoading = event === 'SIGNED_IN' || event === 'SIGNED_OUT';
-        if (shouldShowLoading) {
+        // Skip processing for token refresh events - user is already authenticated
+        // This is the KEY FIX for tab switching issue
+        if (event === 'TOKEN_REFRESHED') {
+          logger.debug('Token refreshed, skipping profile reload', undefined, 'AuthContext');
+          return;
+        }
+
+        // Skip if user ID hasn't changed (prevents reload on INITIAL_SESSION after login)
+        const sessionUserId = session?.user?.id || null;
+        if (sessionUserId && sessionUserId === currentUserIdRef.current) {
+          logger.debug('Same user, skipping redundant profile fetch', { userId: sessionUserId }, 'AuthContext');
+          return;
+        }
+
+        // Only show loading for actual auth state changes
+        const isActualAuthChange = event === 'SIGNED_IN' || event === 'SIGNED_OUT';
+        if (isActualAuthChange) {
           setIsLoading(true);
         }
 
@@ -68,6 +86,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             }, 'AuthContext');
 
             if (profile) {
+              currentUserIdRef.current = profile.id;
               setUser(profile);
             } else {
               // If profile is null, use fallback
@@ -82,6 +101,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
               'customer';
 
             logger.info('Creating fallback profile', { fallbackRole }, 'AuthContext');
+            currentUserIdRef.current = session.user.id;
             setUser({
               id: session.user.id,
               email: session.user.email!,
@@ -89,11 +109,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
               role: fallbackRole
             });
           }
+          setIsLoading(false);
         } else if (event === 'SIGNED_OUT') {
           logger.info('User signed out', undefined, 'AuthContext');
+          currentUserIdRef.current = null;
           setUser(null);
+          setIsLoading(false);
         }
-        setIsLoading(false);
+        // Note: For other events (INITIAL_SESSION, etc.), we don't change loading state
       }
     );
 
@@ -110,9 +133,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       logger.info('AuthContext signIn result', { errorMessage: error?.message }, 'AuthContext');
       // User state will be updated by onAuthStateChange listener
       return { error };
-    } catch (err: Error | unknown) {
+    } catch (err: unknown) {
       // Handle quota exceeded error specifically
-      if (err.name === 'QuotaExceededError' || err.message?.includes('QuotaExceededError') || err.message?.includes('exceeded the quota')) {
+      const error = err as Error;
+      if (error?.name === 'QuotaExceededError' || error?.message?.includes('QuotaExceededError') || error?.message?.includes('exceeded the quota')) {
         logger.error('Storage quota exceeded', err, 'AuthContext');
         // Try to clear more storage space
         try {

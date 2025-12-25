@@ -47,7 +47,7 @@ const MyBookingsPage: React.FC = () => {
             };
             fetchBookings();
         }
-    }, [loggedInUser]);
+    }, [loggedInUser?.id]); // Use stable ID instead of object reference
 
     const { upcomingBookings, pastBookings } = useMemo(() => {
         const now = new Date();

@@ -31,7 +31,7 @@ const EditProfilePage: React.FC = () => {
                 phone: loggedInUser.phone || '',
             });
         }
-    }, [loggedInUser]);
+    }, [loggedInUser?.id]); // Use stable ID instead of object reference
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -40,7 +40,7 @@ const EditProfilePage: React.FC = () => {
         try {
             // Note: This is a placeholder. You'll need to implement the actual API call
             // await api.auth.updateUser({ data: { name: formData.name, phone: formData.phone } });
-            
+
             toast.success('Profile updated successfully!');
             navigate('/profile');
         } catch (error: Error | unknown) {

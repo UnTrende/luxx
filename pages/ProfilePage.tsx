@@ -76,7 +76,7 @@ const ProfilePage: React.FC = () => {
             };
             fetchData();
         }
-    }, [loggedInUser]);
+    }, [loggedInUser?.id]); // Use stable ID instead of object reference to prevent refetch on tab focus
 
     if (isLoading || !loggedInUser) {
         return <div className="text-center p-10 text-subtle-text">Loading profile...</div>;
@@ -216,31 +216,31 @@ const ProfilePage: React.FC = () => {
                             <div className="flex justify-between items-center">
                                 <span className="text-xs text-subtle-text">Visits to next tier</span>
                                 <span className="text-sm font-bold text-gold">
-                                    {loyaltyStats.statusTier === 'Silver' 
-                                        ? Math.max(0, 100 - loyaltyStats.totalConfirmedVisits) 
-                                        : loyaltyStats.statusTier === 'Gold' 
-                                        ? Math.max(0, 200 - loyaltyStats.totalConfirmedVisits) 
-                                        : 0} visits
+                                    {loyaltyStats.statusTier === 'Silver'
+                                        ? Math.max(0, 100 - loyaltyStats.totalConfirmedVisits)
+                                        : loyaltyStats.statusTier === 'Gold'
+                                            ? Math.max(0, 200 - loyaltyStats.totalConfirmedVisits)
+                                            : 0} visits
                                 </span>
                             </div>
                             <div className="w-full bg-white/10 rounded-full h-1.5 mt-2">
-                                <div 
-                                    className="bg-gold h-1.5 rounded-full" 
-                                    style={{ 
-                                        width: `${loyaltyStats.statusTier === 'Silver' 
-                                            ? Math.min(100, (loyaltyStats.totalConfirmedVisits / 100) * 100) 
-                                            : loyaltyStats.statusTier === 'Gold' 
-                                            ? Math.min(100, (loyaltyStats.totalConfirmedVisits / 200) * 100) 
-                                            : 100}%` 
+                                <div
+                                    className="bg-gold h-1.5 rounded-full"
+                                    style={{
+                                        width: `${loyaltyStats.statusTier === 'Silver'
+                                            ? Math.min(100, (loyaltyStats.totalConfirmedVisits / 100) * 100)
+                                            : loyaltyStats.statusTier === 'Gold'
+                                                ? Math.min(100, (loyaltyStats.totalConfirmedVisits / 200) * 100)
+                                                : 100}%`
                                     }}
                                 ></div>
                             </div>
                             <div className="text-[10px] text-subtle-text mt-1">
-                                {loyaltyStats.statusTier === 'Silver' 
-                                    ? `Complete ${Math.max(0, 100 - loyaltyStats.totalConfirmedVisits)} more visits for Gold tier` 
-                                    : loyaltyStats.statusTier === 'Gold' 
-                                    ? `Complete ${Math.max(0, 200 - loyaltyStats.totalConfirmedVisits)} more visits for Platinum tier` 
-                                    : 'You\'ve reached the highest tier!'}
+                                {loyaltyStats.statusTier === 'Silver'
+                                    ? `Complete ${Math.max(0, 100 - loyaltyStats.totalConfirmedVisits)} more visits for Gold tier`
+                                    : loyaltyStats.statusTier === 'Gold'
+                                        ? `Complete ${Math.max(0, 200 - loyaltyStats.totalConfirmedVisits)} more visits for Platinum tier`
+                                        : 'You\'ve reached the highest tier!'}
                             </div>
                         </div>
 
@@ -263,7 +263,7 @@ const ProfilePage: React.FC = () => {
                             <h3 className="text-gold font-serif font-bold text-lg">Platinum Status</h3>
                         </div>
                         <p className="text-xs text-subtle-text">You've reached the highest tier!</p>
-                        
+
                         {/* Visit Summary - FILLING LINE COMPONENT FOR PLATINUM */}
                         <div className="bg-white/5 rounded-lg p-3 mt-3">
                             <div className="flex justify-between items-center">
@@ -273,8 +273,8 @@ const ProfilePage: React.FC = () => {
                                 </span>
                             </div>
                             <div className="w-full bg-white/10 rounded-full h-1.5 mt-2">
-                                <div 
-                                    className="bg-gold h-1.5 rounded-full" 
+                                <div
+                                    className="bg-gold h-1.5 rounded-full"
                                     style={{ width: '100%' }}
                                 ></div>
                             </div>
@@ -282,7 +282,7 @@ const ProfilePage: React.FC = () => {
                                 Enjoy exclusive Platinum benefits
                             </div>
                         </div>
-                        
+
                         {/* Points Summary - Additional FILLING LINE COMPONENT FOR PLATINUM */}
                         <div className="bg-white/5 rounded-lg p-3 mt-2">
                             <div className="flex justify-between items-center">
@@ -292,8 +292,8 @@ const ProfilePage: React.FC = () => {
                                 </span>
                             </div>
                             <div className="w-full bg-white/10 rounded-full h-1.5 mt-2">
-                                <div 
-                                    className="bg-gold h-1.5 rounded-full" 
+                                <div
+                                    className="bg-gold h-1.5 rounded-full"
                                     style={{ width: '100%' }}
                                 ></div>
                             </div>

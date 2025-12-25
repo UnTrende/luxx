@@ -87,7 +87,7 @@ const BarberDashboardPage: React.FC = () => {
             setIsLoadingData(false);
             setIsLoadingAttendance(false);
         }
-    }, [loggedInUser]);
+    }, [loggedInUser?.id]); // Use stable ID instead of object reference
 
     useEffect(() => {
         if (!isAuthLoading) {
