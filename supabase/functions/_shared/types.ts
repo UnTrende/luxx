@@ -102,6 +102,7 @@ export interface CustomerAlert {
 }
 
 export interface Attendance {
+  id?: string;
   barberId: string;
   barberName?: string;
   status: 'Present' | 'Absent' | 'Absent (Approved)' | 'Logged Out' | 'clocked-in' | 'on-break' | 'clocked-out';

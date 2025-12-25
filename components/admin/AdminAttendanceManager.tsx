@@ -17,7 +17,7 @@ export const AdminAttendanceManager: React.FC<AdminAttendanceManagerProps> = ({ 
         try {
             // Optimistic update
             setAttendanceRecords(prev => prev.map(record =>
-                (record as any).id === attendanceId ? { ...record, status: newStatus } : record
+                record.id === attendanceId ? { ...record, status: newStatus } : record
             ));
 
             await api.updateAttendanceStatus(attendanceId, newStatus);
@@ -65,7 +65,7 @@ export const AdminAttendanceManager: React.FC<AdminAttendanceManagerProps> = ({ 
                         </thead>
                         <tbody className="divide-y divide-white/5">
                             {attendanceRecords.map((record) => (
-                                <tr key={(record as any).id || record.barberId} className="hover:bg-white/5 transition-all duration-300 group">
+                                <tr key={record.id || record.barberId} className="hover:bg-white/5 transition-all duration-300 group">
                                     <td className="py-5 px-8">
                                         <div className="flex items-center gap-3">
                                             <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-white/50 text-xs font-bold">
@@ -99,8 +99,9 @@ export const AdminAttendanceManager: React.FC<AdminAttendanceManagerProps> = ({ 
                                         <div className="inline-flex bg-black/40 rounded-lg border border-white/10 p-1">
                                             <select
                                                 value={record.status.toLowerCase()}
-                                                onChange={(e) => handleAttendanceUpdate((record as any).id, e.target.value as any)}
+                                                onChange={(e) => handleAttendanceUpdate(record.id!, e.target.value as any)}
                                                 className="bg-transparent text-xs font-bold text-white focus:outline-none cursor-pointer px-2 py-1"
+                                                disabled={!record.id}
                                             >
                                                 <option value="present" className="bg-gray-900">Present</option>
                                                 <option value="late" className="bg-gray-900">Late</option>

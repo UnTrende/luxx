@@ -32,10 +32,10 @@ serve(async (req) => {
     const url = new URL(req.url);
     const date = url.searchParams.get('date') || new Date().toISOString().split('T')[0];
     
-    // 2. Fetch attendance records for the specified date
+    // 2. Fetch attendance records for the specified date with barber names from join
     const { data: attendance, error } = await supabaseAdmin
         .from('attendance')
-        .select('*')
+        .select('*, barbers!inner(name)')
         .eq('date', date)
         .order('clock_in', { ascending: true });
         
@@ -43,8 +43,9 @@ serve(async (req) => {
 
     // Map database fields to camelCase to match the Attendance interface
     const formattedAttendance = attendance.map(record => ({
+      id: record.id,
       barberId: record.barber_id,
-      barberName: record.barber_name,
+      barberName: record.barbers?.name || 'Unknown',
       status: record.status,
       date: record.date,
       clockIn: record.clock_in,
