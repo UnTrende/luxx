@@ -101,22 +101,40 @@ serve(async (req) => {
     if (bookingsError) throw bookingsError;
 
     // Step 4: Calculate duration for each existing booking
-    const bookedRanges: Array<{ start: number; end: number }> = [];
+    // Collect all unique service IDs from all bookings
+    const allServiceIds = new Set<string>();
+    (existingBookings || []).forEach(booking => {
+      if (booking.service_ids && booking.service_ids.length > 0) {
+        booking.service_ids.forEach((id: string) => allServiceIds.add(id));
+      }
+    });
 
+    // Batch fetch all service durations in ONE query
+    const serviceDurationMap = new Map<string, number>();
+    if (allServiceIds.size > 0) {
+      const { data: allServices } = await supabaseClient
+        .from('services')
+        .select('id, duration')
+        .in('id', Array.from(allServiceIds));
+
+      if (allServices) {
+        allServices.forEach((service: any) => {
+          serviceDurationMap.set(service.id, service.duration || 0);
+        });
+      }
+    }
+
+    // Now calculate booked ranges using the cached service durations
+    const bookedRanges: Array<{ start: number; end: number }> = [];
     for (const booking of existingBookings || []) {
       const startMinutes = timeToMinutes(booking.timeslot);
       let bookingDuration = 60; // Default
 
-      // Get duration of booked services
+      // Get duration of booked services from our map
       if (booking.service_ids && booking.service_ids.length > 0) {
-        const { data: bookedServices } = await supabaseClient
-          .from('services')
-          .select('duration')
-          .in('id', booking.service_ids);
-
-        if (bookedServices) {
-          bookingDuration = bookedServices.reduce((sum: number, s: any) => sum + (s.duration || 0), 0);
-        }
+        bookingDuration = booking.service_ids.reduce((sum: number, serviceId: string) => {
+          return sum + (serviceDurationMap.get(serviceId) || 0);
+        }, 0);
       }
 
       bookedRanges.push({

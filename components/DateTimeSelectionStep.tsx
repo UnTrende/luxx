@@ -45,13 +45,20 @@ const DateTimeSelectionStep: React.FC<DateTimeSelectionStepProps> = ({
       const dates = generateDates();
       const available = new Set<string>();
       
-      // Check each date for availability
-      for (const date of dates) {
-        const result = await api.isBarberAvailable(barber.id, date);
-        if (result.available) {
+      // Check all dates in parallel instead of sequentially
+      const availabilityPromises = dates.map(date => 
+        api.isBarberAvailable(barber.id, date)
+          .then(result => ({ date, available: result.available }))
+          .catch(() => ({ date, available: true })) // Fallback to available on error
+      );
+      
+      const results = await Promise.all(availabilityPromises);
+      
+      results.forEach(({ date, available: isAvailable }) => {
+        if (isAvailable) {
           available.add(date);
         }
-      }
+      });
       
       setAvailableDates(available);
     } catch (error) {
