@@ -47,19 +47,11 @@ self.addEventListener('fetch', (event) => {
     const { request } = event;
     const url = new URL(request.url);
 
-    // Network-first for API requests
+    // Network-first for API requests - DO NOT CACHE (causes stale data issues)
     if (url.pathname.startsWith('/api/') || url.pathname.includes('functions/v1')) {
         event.respondWith(
             fetch(request)
-                .then(response => {
-                    // Cache successful GET responses
-                    if (request.method === 'GET' && response.status === 200) {
-                        const responseClone = response.clone();
-                        caches.open(DYNAMIC_CACHE).then(cache => cache.put(request, responseClone));
-                    }
-                    return response;
-                })
-                .catch(() => caches.match(request)) // Fallback to cache if offline
+                .catch(() => caches.match(request)) // Fallback to cache only if offline
         );
         return;
     }

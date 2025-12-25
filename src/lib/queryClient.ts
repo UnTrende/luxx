@@ -44,7 +44,7 @@ if (typeof window !== 'undefined') {
   persistQueryClient({
     queryClient,
     persister: localStoragePersister,
-    maxAge: 1000 * 60 * 60 * 24, // 24 hours
+    maxAge: 1000 * 60 * 10, // 10 minutes (reduced from 24 hours to prevent stale data)
   });
 }
 
